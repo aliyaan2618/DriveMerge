@@ -3,6 +3,7 @@
 DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox, Mega, Box, pCloud, SFTP, WebDAV and 60+ more) into one storage space, with file browsing and folder sync. It is a desktop app for Windows first, then macOS and Linux, released free and open source on GitHub.
 
 **Out of scope:**
+- A separate website. The GitHub repo and its README are the home page.
 - Mounting clouds as a drive letter. DriveMerge is cloud storage only.
 - File encryption. Files are stored in the clouds as they are.
 - A password lock on DriveMerge's settings file.
@@ -135,7 +136,7 @@ DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 - [x] Installers and the signed update file go to a draft GitHub Release, published by hand
 - [x] Auto-update from GitHub Releases: checked at start, "Update to X" button, manual check in Settings, signed with a private key kept outside the repo
 - [ ] Code signing for Windows (optional, about $10/month; without it SmartScreen warns on first run)
-- [x] Landing page (`docs/index.html`) and guides for connecting accounts and Google Drive, served by GitHub Pages
+- [x] Guides for connecting accounts and Google Drive (`docs/`), shown on GitHub
 - [x] Licence check: all shipped libraries are permissive (MIT/Apache/BSD/ISC) or MPL-2.0 used unmodified; listed in THIRD-PARTY-LICENSES.md
 
 ## Phase 4: macOS and Linux
