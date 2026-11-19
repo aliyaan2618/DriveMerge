@@ -6,7 +6,7 @@ export type Config = Record<string, Record<string, string>>;
 export type About = { total?: number; used?: number; free?: number };
 
 const NAMES: Record<string, string> = {
-  drive: "Google Drive", onedrive: "OneDrive", dropbox: "Dropbox", mega: "Mega", box: "Box", pcloud: "pCloud",
+  drive: "Google Drive", onedrive: "OneDrive", dropbox: "Dropbox", mega: "MEGA", box: "Box", pcloud: "pCloud", koofr: "Koofr", filen: "Filen", jottacloud: "Jottacloud", protondrive: "Proton Drive",
   sftp: "SFTP", webdav: "WebDAV", s3: "S3", ftp: "FTP", alias: "Folder", local: "Local",
 };
 export const providerName = (type: string) => NAMES[type] ?? type;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Loader2, Pencil, Plus, RotateCw, Search, Trash2 } from "lucide-react";
 import { rc } from "../rc";
+import type { PageProps } from "../App";
 import { Badge, Usage, createAccount, providerName, reconnectAccount, renameAccount, savePool, setInPool, useAbout, useAccounts, type About } from "../accounts";
 import { NAME_RE, POLICIES, POOL, formatBytes, toggleUpstream, upstreams } from "../lib";
 
@@ -11,7 +12,7 @@ type Provider = { Name: string; Description: string; Options: Option[] };
 const HIDDEN = new Set(["alias", "cache", "chunker", "combine", "compress", "crypt", "hasher", "union", "local", "memory", "tardigrade", "uptobox", "archive"]);
 const POPULAR = ["drive", "onedrive", "dropbox", "mega", "box", "pcloud", "sftp", "webdav"];
 
-export default function Accounts() {
+export default function Accounts({ addProvider }: PageProps) {
   const { accounts, pool, reload, error } = useAccounts();
   const poolAbout = useAbout(pool ? `${POOL}:` : undefined, pool?.upstreams);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -19,6 +20,10 @@ export default function Accounts() {
   const [busy, setBusy] = useState("");
   const [key, setKey] = useState(0); // remounts usage bars after a reconnect
   const taken = accounts.map((a) => a.name);
+
+  // Arriving from the Dashboard's free-storage list: open Add account on that service.
+  const [initial, setInitial] = useState(addProvider);
+  useEffect(() => { if (addProvider) { setInitial(addProvider); dialog.current?.showModal(); } }, [addProvider]);
 
   async function act(label: string, fn: () => Promise<unknown>) {
     setBusy(label);
@@ -98,8 +103,8 @@ export default function Accounts() {
         </section>
       )}
 
-      <dialog ref={dialog} aria-label="Add account" onClose={reload}>
-        <AddAccount taken={taken} onDone={async (name) => {
+      <dialog ref={dialog} aria-label="Add account" onClose={() => { setInitial(undefined); reload(); }}>
+        <AddAccount key={initial ?? ""} initial={initial} taken={taken} onDone={async (name) => {
           await setInPool(pool, name, true);
           dialog.current?.close();
         }} onCancel={() => dialog.current?.close()} />
@@ -108,7 +113,7 @@ export default function Accounts() {
   );
 }
 
-function AddAccount({ taken, onDone, onCancel }: { taken: string[]; onDone: (name: string) => Promise<unknown>; onCancel: () => void }) {
+function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; taken: string[]; onDone: (name: string) => Promise<unknown>; onCancel: () => void }) {
   const [providers, setProviders] = useState<Provider[]>();
   const [q, setQ] = useState("");
   const [p, setP] = useState<Provider>();
@@ -129,6 +134,19 @@ function AddAccount({ taken, onDone, onCancel }: { taken: string[]; onDone: (nam
     return () => clearInterval(t);
   }, [status.busy]);
 
+  function pick(x: Provider) {
+    setP(x);
+    const base = providerName(x.Name).replace(/[^A-Za-z0-9_-]/g, "");
+    let n = base, i = 2;
+    while (taken.includes(n) || n === POOL) n = `${base}${i++}`;
+    setName(n);
+  }
+
+  useEffect(() => {
+    const x = initial && providers?.find((pr) => pr.Name === initial);
+    if (x) pick(x);
+  }, [providers]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!providers) return <p className="muted">Loading providers…</p>;
 
   if (!p) {
@@ -142,13 +160,7 @@ function AddAccount({ taken, onDone, onCancel }: { taken: string[]; onDone: (nam
         </label>
         <div className="list" style={{ maxHeight: 380, overflow: "auto" }}>
           {shown.map((x) => (
-            <button key={x.Name} className="item nav" style={{ color: "var(--text)" }} onClick={() => {
-              setP(x);
-              const base = providerName(x.Name).replace(/[^A-Za-z0-9_-]/g, "");
-              let n = base, i = 2;
-              while (taken.includes(n) || n === POOL) n = `${base}${i++}`;
-              setName(n);
-            }}>
+            <button key={x.Name} className="item nav" style={{ color: "var(--text)" }} onClick={() => pick(x)}>
               <Badge type={x.Name} />
               <span className="grow"><span>{providerName(x.Name)}</span><br /><span className="small muted">{x.Description}</span></span>
             </button>

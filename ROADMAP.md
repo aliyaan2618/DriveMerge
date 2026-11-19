@@ -42,6 +42,7 @@ DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 - [x] Keyboard focus outlines, labelled icon buttons, reduced-motion support
 
 ### Screens
+- [x] **Free storage list on the Dashboard:** 10 services with free plans (up to 92 GB in total), how many of each you have, and an Add button that opens that service's sign-in
 - [x] **Dashboard:** pool usage ring, quick numbers, per-account space, first-run welcome
 - [x] **Accounts:** add or remove accounts, include or exclude each in the pool
   - Searchable list of 60+ services, popular ones first

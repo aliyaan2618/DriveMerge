@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import type { PageProps } from "../App";
 import { Badge, Usage, providerName, useAbout, useAccounts } from "../accounts";
-import { POOL, formatBytes, upstreams } from "../lib";
+import { FREE_TIERS, POOL, formatBytes, upstreams } from "../lib";
 import { getJobs } from "../jobs";
 
 function Ring({ pct }: { pct: number }) {
@@ -19,18 +19,56 @@ function Ring({ pct }: { pct: number }) {
   );
 }
 
+/** Services with a free plan the user can add; shows how many of each they already have. */
+function FreeStorage({ go, have }: { go: PageProps["go"]; have: string[] }) {
+  const total = FREE_TIERS.reduce((sum, t) => sum + t.gb, 0);
+  return (
+    <section className="card">
+      <div className="row between" style={{ alignItems: "baseline" }}>
+        <h2>Free storage you can add</h2>
+        <p className="small muted">Up to {total} GB free across these services</p>
+      </div>
+      <p className="small muted" style={{ marginTop: -6, marginBottom: 12 }}>
+        Each account adds its free space to your pool. You can add more than one account of the same service, for example several Google accounts.
+      </p>
+      <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 10 }}>
+        {FREE_TIERS.map((t) => {
+          const n = have.filter((x) => x === t.type).length;
+          return (
+            <div key={t.type} className="row" style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
+              <Badge type={t.type} />
+              <div className="grow" style={{ minWidth: 0 }}>
+                <p className="truncate"><strong>{t.gb} GB</strong> <span className="muted">· {providerName(t.type)}</span></p>
+                <p className="small muted truncate" title={t.note}>{n ? `You have ${n}` : t.note ?? "Free plan"}</p>
+              </div>
+              <button className="btn" style={{ height: 30, padding: "0 10px" }} aria-label={`Add ${n ? "another " : ""}${providerName(t.type)} account`}
+                onClick={() => go("accounts", t.type)}><Plus size={14} /> {n ? "Another" : "Add"}</button>
+            </div>
+          );
+        })}
+      </div>
+      <p className="small muted" style={{ marginTop: 10 }}>Free amounts as of November 2026; services change them. Need another service? Use Add account to see all 60+.</p>
+    </section>
+  );
+}
+
 export default function Dashboard({ go, stats }: PageProps) {
   const { accounts, pool, loading } = useAccounts();
   const about = useAbout(pool ? `${POOL}:` : undefined, pool?.upstreams);
   const inPool = upstreams(pool?.upstreams);
 
+  const have = accounts.map((a) => a.type);
+
   if (!loading && !accounts.length)
     return (
-      <div className="card center" style={{ padding: 56 }}>
-        <h2>Pool all your clouds into one space</h2>
-        <p className="muted">Add your Google Drive, OneDrive, Dropbox and other accounts. DriveMerge adds up their free space.</p>
-        <button className="btn primary" onClick={() => go("accounts")}><Plus size={16} /> Add your first account</button>
-      </div>
+      <>
+        <div className="card center" style={{ padding: 56 }}>
+          <h2>Pool all your clouds into one space</h2>
+          <p className="muted">Add your Google Drive, OneDrive, Dropbox and other accounts. DriveMerge adds up their free space.</p>
+          <button className="btn primary" onClick={() => go("accounts")}><Plus size={16} /> Add your first account</button>
+        </div>
+        <FreeStorage go={go} have={have} />
+      </>
     );
 
   const pct = about?.total ? ((about.used ?? 0) / about.total) * 100 : 0;
@@ -79,6 +117,8 @@ export default function Dashboard({ go, stats }: PageProps) {
           ))}
         </div>
       </section>
+
+      <FreeStorage go={go} have={have} />
     </>
   );
 }

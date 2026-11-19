@@ -14,7 +14,8 @@ import type { Update } from "@tauri-apps/plugin-updater";
 
 export type Transfer = { name: string; size: number; bytes: number; percentage: number; speed: number; eta: number | null };
 export type Stats = { bytes: number; speed: number; errors: number; lastError?: string; transfers: number; transferring?: Transfer[] };
-export type PageProps = { go: (page: PageId) => void; stats?: Stats };
+/** `addProvider` opens Accounts with the Add dialog on that service (from the Dashboard's free-storage list). */
+export type PageProps = { go: (page: PageId, addProvider?: string) => void; stats?: Stats; addProvider?: string };
 
 const PAGES = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, Page: Dashboard },
@@ -28,6 +29,8 @@ export type PageId = (typeof PAGES)[number]["id"];
 
 export default function App() {
   const [page, setPage] = useState<PageId>("dashboard");
+  const [addProvider, setAddProvider] = useState<string>();
+  const go = (p: PageId, provider?: string) => { setAddProvider(provider); setPage(p); };
   const [engine, setEngine] = useState<{ version?: string; error?: string }>({});
   const [stats, setStats] = useState<Stats>();
   const [update, setUpdate] = useState<Update | null>(null);
@@ -71,7 +74,7 @@ export default function App() {
           <span className="brand-mark"><Layers size={15} /></span> DriveMerge
         </div>
         {PAGES.map(({ id, label, icon: Icon }) => (
-          <button key={id} className="nav" aria-current={id === page ? "page" : undefined} onClick={() => setPage(id)}>
+          <button key={id} className="nav" aria-current={id === page ? "page" : undefined} onClick={() => go(id)}>
             <Icon size={17} strokeWidth={1.75} /> {label}
           </button>
         ))}
@@ -87,14 +90,14 @@ export default function App() {
               {installing ? <><Loader2 size={15} className="spin" /> Updating…</> : `Update to ${update.version}`}
             </button>
           )}
-          <button className="btn" onClick={() => setPage("activity")} aria-label="Open activity">
+          <button className="btn" onClick={() => go("activity")} aria-label="Open activity">
             {active ? <Loader2 size={15} className="spin" /> : <ActivityIcon size={15} />}
             {active ? `${active} transfer${active > 1 ? "s" : ""} · ${formatBytes(stats?.speed)}/s` : "Idle"}
           </button>
           </div>
         </header>
         <main className="content">
-          <current.Page go={setPage} stats={stats} />
+          <current.Page go={go} stats={stats} addProvider={addProvider} />
         </main>
       </div>
     </div>
