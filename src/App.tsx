@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity as ActivityIcon, Cloud, Folder, LayoutDashboard, Layers, Loader2, RefreshCw, Settings as SettingsIcon } from "lucide-react";
+import { Activity as ActivityIcon, ChevronRight, Cloud, Folder, LayoutDashboard, Layers, Loader2, RefreshCw, Settings as SettingsIcon } from "lucide-react";
 import { rc, ready } from "./rc";
 import { formatBytes } from "./lib";
 import Dashboard from "./pages/Dashboard";
@@ -18,12 +18,12 @@ export type Stats = { bytes: number; speed: number; errors: number; lastError?: 
 export type PageProps = { go: (page: PageId, addProvider?: string) => void; stats?: Stats; addProvider?: string };
 
 const PAGES = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, Page: Dashboard },
-  { id: "files", label: "Files", icon: Folder, Page: Files },
-  { id: "sync", label: "Sync", icon: RefreshCw, Page: Sync },
-  { id: "accounts", label: "Accounts", icon: Cloud, Page: Accounts },
-  { id: "activity", label: "Activity", icon: ActivityIcon, Page: Activity },
-  { id: "settings", label: "Settings", icon: SettingsIcon, Page: Settings },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, Page: Dashboard, group: "Menu" },
+  { id: "files", label: "Files", icon: Folder, Page: Files, group: "Menu" },
+  { id: "sync", label: "Sync", icon: RefreshCw, Page: Sync, group: "Menu" },
+  { id: "accounts", label: "Accounts", icon: Cloud, Page: Accounts, group: "Manage" },
+  { id: "activity", label: "Activity", icon: ActivityIcon, Page: Activity, group: "Manage" },
+  { id: "settings", label: "Settings", icon: SettingsIcon, Page: Settings, group: "Settings" },
 ] as const;
 export type PageId = (typeof PAGES)[number]["id"];
 
@@ -73,16 +73,24 @@ export default function App() {
         <div className="brand">
           <span className="brand-mark"><Layers size={15} /></span> DriveMerge
         </div>
-        {PAGES.map(({ id, label, icon: Icon }) => (
-          <button key={id} className="nav" aria-current={id === page ? "page" : undefined} onClick={() => go(id)}>
-            <Icon size={17} strokeWidth={1.75} /> {label}
-          </button>
+        {(["Menu", "Manage", "Settings"] as const).map((group) => (
+          <div key={group} className="nav-group" style={group === "Settings" ? { marginTop: "auto" } : undefined}>
+            <p className="nav-label">{group}</p>
+            {PAGES.filter((p) => p.group === group).map(({ id, label, icon: Icon }) => (
+              <button key={id} className="nav" aria-current={id === page ? "page" : undefined} onClick={() => go(id)}>
+                <Icon size={16} strokeWidth={1.75} /> <span className="grow">{label}</span>
+                {id === "activity" && active > 0 && <span className="nav-count">{active}</span>}
+              </button>
+            ))}
+          </div>
         ))}
         <div className="sidebar-foot small muted">Powered by rclone {engine.version}</div>
       </nav>
       <div className="main">
         <header className="topbar">
-          <h1>{current.label}</h1>
+          <nav className="crumbs" aria-label="Breadcrumb">
+            <span className="muted">DriveMerge</span> <ChevronRight size={14} className="muted" /> <span aria-current="page">{current.label}</span>
+          </nav>
           <div className="row">
           {update && (
             <button className="btn primary" disabled={installing} title={update.body ?? ""}
@@ -90,7 +98,7 @@ export default function App() {
               {installing ? <><Loader2 size={15} className="spin" /> Updating…</> : `Update to ${update.version}`}
             </button>
           )}
-          <button className="btn" onClick={() => go("activity")} aria-label="Open activity">
+          <button className="btn ghost" onClick={() => go("activity")} aria-label="Open activity">
             {active ? <Loader2 size={15} className="spin" /> : <ActivityIcon size={15} />}
             {active ? `${active} transfer${active > 1 ? "s" : ""} · ${formatBytes(stats?.speed)}/s` : "Idle"}
           </button>
