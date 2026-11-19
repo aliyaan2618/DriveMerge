@@ -66,7 +66,7 @@ fn export_jobs(path: String, json: String) -> Result<(), String> {
 #[tauri::command]
 fn import_jobs(path: String) -> Result<String, String> {
     let s = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    serde_json::from_str::<Vec<serde_json::Value>>(&s).map_err(|_| "That file isn't a CloudMerge sync jobs export.".to_string())?;
+    serde_json::from_str::<Vec<serde_json::Value>>(&s).map_err(|_| "That file isn't a DriveMerge sync jobs export.".to_string())?;
     Ok(s)
 }
 
@@ -76,6 +76,13 @@ fn start_rclone(app: &tauri::AppHandle) -> Result<Rclone, Box<dyn std::error::Er
     let pass: String = rand::rng().sample_iter(Alphanumeric).take(32).map(char::from).collect();
     let data = app.path().app_data_dir()?;
     std::fs::create_dir_all(&data)?;
+    // One-time carry-over from the app's previous name (CloudMerge). Copies, so the old folder stays as a backup.
+    let old = data.with_file_name("com.cloudmerge.app");
+    for f in ["rclone.conf", "sync-jobs.json"] {
+        if !data.join(f).exists() && old.join(f).exists() {
+            std::fs::copy(old.join(f), data.join(f))?;
+        }
+    }
 
     // Only the app's own web view may call the engine.
     let origin = if cfg!(debug_assertions) {
@@ -89,7 +96,7 @@ fn start_rclone(app: &tauri::AppHandle) -> Result<Rclone, Box<dyn std::error::Er
     // Tauri places the sidecar next to the app executable (without the target triple).
     let exe = std::env::current_exe()?.with_file_name(if cfg!(windows) { "rclone.exe" } else { "rclone" });
     let mut cmd = Command::new(exe);
-    cmd.args(["rcd", "--rc-addr", &format!("127.0.0.1:{port}"), "--rc-user", "cloudmerge", "--rc-pass", &pass])
+    cmd.args(["rcd", "--rc-addr", &format!("127.0.0.1:{port}"), "--rc-user", "drivemerge", "--rc-pass", &pass])
         .args(["--rc-allow-origin", origin, "--config"])
         .arg(data.join("rclone.conf"));
     #[cfg(windows)]
@@ -97,7 +104,7 @@ fn start_rclone(app: &tauri::AppHandle) -> Result<Rclone, Box<dyn std::error::Er
 
     Ok(Rclone {
         child: Mutex::new(Some(cmd.spawn()?)),
-        info: RcInfo { url: format!("http://127.0.0.1:{port}"), user: "cloudmerge".into(), pass },
+        info: RcInfo { url: format!("http://127.0.0.1:{port}"), user: "drivemerge".into(), pass },
     })
 }
 
@@ -121,11 +128,11 @@ pub fn run() {
         .setup(|app| {
             app.manage(start_rclone(app.handle())?);
 
-            let open = MenuItem::with_id(app, "open", "Open CloudMerge", true, None::<&str>)?;
+            let open = MenuItem::with_id(app, "open", "Open DriveMerge", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
-                .tooltip("CloudMerge")
+                .tooltip("DriveMerge")
                 .menu(&Menu::with_items(app, &[&open, &quit])?)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, e| match e.id.as_ref() {
@@ -149,7 +156,7 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Closing the window keeps CloudMerge running in the tray; Quit is in the tray menu.
+            // Closing the window keeps DriveMerge running in the tray; Quit is in the tray menu.
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = window.hide();

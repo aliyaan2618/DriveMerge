@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 import { nextRun, type SyncJob } from "./lib";
 
 // Sync jobs live in sync-jobs.json in the app data folder; kept in memory after startup.
-const OLD_KEY = "cloudmerge.syncJobs";
+const OLD_KEY = "drivemerge.syncJobs";
 const inTauri = "__TAURI_INTERNALS__" in window;
 let jobs: SyncJob[] = [];
 const listeners = new Set<() => void>();

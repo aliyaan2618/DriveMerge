@@ -1,11 +1,11 @@
-# CloudMerge Roadmap
+# DriveMerge Roadmap
 
-CloudMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox, Mega, Box, pCloud, SFTP, WebDAV and 60+ more) into one storage space, with file browsing and folder sync. It is a desktop app for Windows first, then macOS and Linux, released free and open source on GitHub.
+DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox, Mega, Box, pCloud, SFTP, WebDAV and 60+ more) into one storage space, with file browsing and folder sync. It is a desktop app for Windows first, then macOS and Linux, released free and open source on GitHub.
 
 **Out of scope:**
-- Mounting clouds as a drive letter. CloudMerge is cloud storage only.
+- Mounting clouds as a drive letter. DriveMerge is cloud storage only.
 - File encryption. Files are stored in the clouds as they are.
-- A password lock on CloudMerge's settings file.
+- A password lock on DriveMerge's settings file.
 
 ---
 
@@ -21,7 +21,7 @@ CloudMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 **Where things live**
 - App code: `src/` (screens in `src/pages/`), Rust shell: `src-tauri/src/lib.rs`
 - rclone download script (checksum-verified): `scripts/fetch-rclone.mjs`
-- Your accounts and sign-in tokens: `%APPDATA%\com.cloudmerge.app\rclone.conf` (never committed)
+- Your accounts and sign-in tokens: `%APPDATA%\com.drivemerge.app\rclone.conf` (never committed)
 
 ---
 
@@ -66,7 +66,7 @@ CloudMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 
 ### Phase 2 (power features), 19 November 2026
 - [x] Scheduled sync jobs (once, daily, weekly, monthly) with "Next run" on each job, missed runs caught up at start, unit-tested schedule maths
-- [x] Command line `cloudmerge` (saved jobs by name, dry run, any rclone command), bundled with the app
+- [x] Command line `drivemerge` (saved jobs by name, dry run, any rclone command), bundled with the app
 - [x] Sync runs moved to a shared runner, so scheduled runs work from the tray with no window open
 
 ### Bugs fixed during testing
@@ -78,7 +78,7 @@ CloudMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 ---
 
 ## Known issues and limits
-- **Google's shared login is temporary.** Drive sign-in uses rclone's shared Google login, which is retired during 2026. CloudMerge needs its own Google API login before release (see Phase 3).
+- **Google's shared login is temporary.** Drive sign-in uses rclone's shared Google login, which is retired during 2026. DriveMerge needs its own Google API login before release (see Phase 3).
 - **Same-name files on Google Drive:** renaming or deleting one of two identically named files may act on either one.
 - **Destination folders in the pool are typed as paths** (`pool:Photos`). Local folders have a Browse… button.
 - **Release builds untested:** the engine only accepts the app's own address. In development that is checked; the installed (release) address `http://tauri.localhost` is checked when the first installer is built.
@@ -112,7 +112,7 @@ CloudMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 - [x] Store sync jobs in a file in the app's data folder, with export and import
 
 **General**
-- [x] Tray icon: closing the window keeps CloudMerge running; Open and Quit in the tray menu
+- [x] Tray icon: closing the window keeps DriveMerge running; Open and Quit in the tray menu
 - [ ] Live status (current transfer) in the tray menu
 - [x] Start with Windows (optional)
 - [x] Desktop notifications when a sync finishes or fails
@@ -122,13 +122,13 @@ CloudMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 - [x] App icon and branding
 
 ## Phase 2: power features
-- [x] **Scheduled jobs:** once, daily, weekly or monthly, on any sync job. Runs while CloudMerge is open or in the tray; a run missed while it was closed happens once at the next start
-- [ ] Run scheduled jobs even when CloudMerge isn't running (Windows Task Scheduler)
-- [x] **Command line:** `cloudmerge jobs`, `cloudmerge run "Job name" [--dry-run]`, and any rclone command on your accounts and pool (`cloudmerge ls pool:`). Settings shows the one-line command to add it to PATH
+- [x] **Scheduled jobs:** once, daily, weekly or monthly, on any sync job. Runs while DriveMerge is open or in the tray; a run missed while it was closed happens once at the next start
+- [ ] Run scheduled jobs even when DriveMerge isn't running (Windows Task Scheduler)
+- [x] **Command line:** `drivemerge jobs`, `drivemerge run "Job name" [--dry-run]`, and any rclone command on your accounts and pool (`drivemerge ls pool:`). Settings shows the one-line command to add it to PATH
 - [ ] Command-line runs don't update the job's last result in the app yet
 
 ## Phase 3: release on GitHub
-- [x] Support for CloudMerge's own Google login, built in from GitHub secrets (`GDRIVE_CLIENT_ID`/`SECRET`)
+- [x] Support for DriveMerge's own Google login, built in from GitHub secrets (`GDRIVE_CLIENT_ID`/`SECRET`)
 - [ ] Create the Google project and pass Google's verification for the Drive scope (needs the maintainer's Google account; paid security assessment for public use)
 - [ ] Own OneDrive and Dropbox app registrations if the shared ones become limited
 - [x] GitHub Actions: tagging `vX.Y.Z` builds the Windows installer (unit tests and version check first)

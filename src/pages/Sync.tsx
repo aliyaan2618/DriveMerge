@@ -39,7 +39,7 @@ export default function Sync() {
 
   async function doExport() {
     const { save } = await import("@tauri-apps/plugin-dialog");
-    const path = await save({ defaultPath: "cloudmerge-sync-jobs.json", filters: [{ name: "JSON", extensions: ["json"] }] });
+    const path = await save({ defaultPath: "drivemerge-sync-jobs.json", filters: [{ name: "JSON", extensions: ["json"] }] });
     if (path) await exportJobs(path).then(() => setMsg(`Exported ${jobs.length} job(s).`), (e) => alert(e));
   }
   async function doImport() {
@@ -232,7 +232,7 @@ function Editor({ job, onSave, onCancel }: { job: SyncJob; onSave: (j: SyncJob) 
           </div>
         )}
         <small className="small muted">
-          {s ? `${describe(s)}. CloudMerge must be running (it can stay in the tray); a run missed while it was closed happens when it next starts.` : "Runs only when you click Run now."}
+          {s ? `${describe(s)}. DriveMerge must be running (it can stay in the tray); a run missed while it was closed happens when it next starts.` : "Runs only when you click Run now."}
         </small>
       </div>
 

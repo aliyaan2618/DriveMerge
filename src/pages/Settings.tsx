@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { inTauri, rc, useRc } from "../rc";
 import { checkForUpdate, installUpdate } from "../update";
 
-const THEME_KEY = "cloudmerge.theme";
-const BW_KEY = "cloudmerge.bwlimit";
+const THEME_KEY = "drivemerge.theme";
+const BW_KEY = "drivemerge.bwlimit";
 type Theme = "system" | "light" | "dark";
 
 export function applyTheme(t?: Theme) {
@@ -37,7 +37,7 @@ export default function Settings() {
     try {
       const u = await checkForUpdate();
       if (!u) return setUpdateMsg("You have the latest version.");
-      if (!confirm(`CloudMerge ${u.version} is available. Install it and restart now?`)) return setUpdateMsg(`Version ${u.version} is available.`);
+      if (!confirm(`DriveMerge ${u.version} is available. Install it and restart now?`)) return setUpdateMsg(`Version ${u.version} is available.`);
       setUpdateMsg("Downloading update…");
       await installUpdate(u);
     } catch (e) {
@@ -93,10 +93,10 @@ export default function Settings() {
           <h2>Startup</h2>
           <label className="row">
             <input type="checkbox" checked={!!autostart} disabled={autostart === undefined} onChange={(e) => toggleAutostart(e.target.checked)} />
-            Start CloudMerge when I sign in to Windows
+            Start DriveMerge when I sign in to Windows
           </label>
           <p className="small muted" style={{ marginTop: 8 }}>
-            It starts quietly in the system tray. Closing the window also keeps CloudMerge running there; use Quit in the tray menu to exit.
+            It starts quietly in the system tray. Closing the window also keeps DriveMerge running there; use Quit in the tray menu to exit.
           </p>
         </section>
       )}
@@ -105,14 +105,14 @@ export default function Settings() {
         <section className="card">
           <h2>Command line</h2>
           <p className="small muted">
-            Use <code>cloudmerge</code> in a terminal for scripts: run saved syncs by name or any rclone command on your pool.
-            To turn it on, run this once in PowerShell, then open a new terminal and type <code>cloudmerge help</code>.
+            Use <code>drivemerge</code> in a terminal for scripts: run saved syncs by name or any rclone command on your pool.
+            To turn it on, run this once in PowerShell, then open a new terminal and type <code>drivemerge help</code>.
           </p>
           <div className="row" style={{ marginTop: 10 }}>
-            <input readOnly value={pathCmd} aria-label="PowerShell command to add CloudMerge to PATH" style={{ fontFamily: "ui-monospace, Consolas, monospace", fontSize: 12 }} />
+            <input readOnly value={pathCmd} aria-label="PowerShell command to add DriveMerge to PATH" style={{ fontFamily: "ui-monospace, Consolas, monospace", fontSize: 12 }} />
             <button className="btn" onClick={() => navigator.clipboard.writeText(pathCmd).then(() => setCopied(true))}>{copied ? "Copied" : "Copy"}</button>
           </div>
-          <p className="small muted" style={{ marginTop: 8 }}>Examples: <code>cloudmerge jobs</code> · <code>cloudmerge run "Photos backup"</code> · <code>cloudmerge ls pool:</code></p>
+          <p className="small muted" style={{ marginTop: 8 }}>Examples: <code>drivemerge jobs</code> · <code>drivemerge run "Photos backup"</code> · <code>drivemerge ls pool:</code></p>
         </section>
       )}
 
@@ -132,7 +132,7 @@ export default function Settings() {
       <section className="card">
         <h2>About</h2>
         <div className="row">
-          <p className="grow">CloudMerge {__APP_VERSION__}</p>
+          <p className="grow">DriveMerge {__APP_VERSION__}</p>
           {inTauri && <button className="btn" onClick={manualCheck}>Check for updates</button>}
         </div>
         {updateMsg && <p className="small muted">{updateMsg}</p>}

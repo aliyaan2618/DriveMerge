@@ -28,7 +28,7 @@ export default function Dashboard({ go, stats }: PageProps) {
     return (
       <div className="card center" style={{ padding: 56 }}>
         <h2>Pool all your clouds into one space</h2>
-        <p className="muted">Add your Google Drive, OneDrive, Dropbox and other accounts. CloudMerge adds up their free space.</p>
+        <p className="muted">Add your Google Drive, OneDrive, Dropbox and other accounts. DriveMerge adds up their free space.</p>
         <button className="btn primary" onClick={() => go("accounts")}><Plus size={16} /> Add your first account</button>
       </div>
     );

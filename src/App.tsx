@@ -68,7 +68,7 @@ export default function App() {
     <div className="app">
       <nav className="sidebar" aria-label="Main">
         <div className="brand">
-          <span className="brand-mark"><Layers size={15} /></span> CloudMerge
+          <span className="brand-mark"><Layers size={15} /></span> DriveMerge
         </div>
         {PAGES.map(({ id, label, icon: Icon }) => (
           <button key={id} className="nav" aria-current={id === page ? "page" : undefined} onClick={() => setPage(id)}>

@@ -91,7 +91,7 @@ async function answerQuestions(name: string, out: OutState) {
   if (out.Error) throw new Error(out.Error);
 }
 
-// CloudMerge's own Google login, baked in at build time (GitHub secrets). A desktop app's client secret
+// DriveMerge's own Google login, baked in at build time (GitHub secrets). A desktop app's client secret
 // is not confidential per Google's docs for installed apps; it only identifies the app.
 const GOOGLE_ID = import.meta.env.VITE_GDRIVE_CLIENT_ID as string | undefined;
 const GOOGLE_SECRET = import.meta.env.VITE_GDRIVE_CLIENT_SECRET as string | undefined;

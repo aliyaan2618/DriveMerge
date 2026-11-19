@@ -31,7 +31,7 @@ export default function Accounts() {
   async function remove(name: string) {
     const about = await rc<About>("operations/about", { fs: `${name}:` }).catch(() => undefined);
     const held = inPool.includes(`${name}:`) && about?.used ? `\n\nIts ${formatBytes(about.used)} of files will no longer appear in your pool.` : "";
-    if (!confirm(`Remove "${name}" from CloudMerge?\n\nNothing is deleted from the cloud.${held}`)) return;
+    if (!confirm(`Remove "${name}" from DriveMerge?\n\nNothing is deleted from the cloud.${held}`)) return;
     act(`remove ${name}`, async () => {
       await savePool(pool, toggleUpstream(pool?.upstreams, name, false));
       await rc("config/delete", { name });
@@ -210,7 +210,7 @@ function AddAccount({ taken, onDone, onCancel }: { taken: string[]; onDone: (nam
         {nameError && <small className="error small">{nameError}</small>}
       </label>
       {required.map(field)}
-      {oauth && <p className="banner small">A browser window will open so you can sign in. CloudMerge never sees your password.</p>}
+      {oauth && <p className="banner small">A browser window will open so you can sign in. DriveMerge never sees your password.</p>}
       {authUrl && <p className="small muted">Browser didn't open? <a href={authUrl} onClick={(e) => { e.preventDefault(); import("@tauri-apps/plugin-opener").then((o) => o.openUrl(authUrl)); }}>Open the sign-in page</a></p>}
       {!!optional.length && (
         <details>

@@ -48,7 +48,7 @@ export async function runJob(job: SyncJob, dryRun = false): Promise<Progress | u
   }
 }
 
-/** Starts every job whose scheduled time has come. Runs missed while CloudMerge was closed happen once, at startup. */
+/** Starts every job whose scheduled time has come. Runs missed while DriveMerge was closed happen once, at startup. */
 export async function runDueJobs(now = Date.now()) {
   for (const job of getJobs()) {
     if (!job.schedule || !job.nextRun || job.nextRun > now || state.running[job.id]) continue;

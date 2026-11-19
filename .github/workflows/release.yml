@@ -45,14 +45,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # Optional: CloudMerge's own Google login (see docs/google-drive.md). Empty = rclone's shared login.
+          # Optional: DriveMerge's own Google login (see docs/google-drive.md). Empty = rclone's shared login.
           VITE_GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
           VITE_GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: CloudMerge ${{ github.ref_name }}
+          releaseName: DriveMerge ${{ github.ref_name }}
           releaseBody: |
-            Windows installer below (`CloudMerge_..._x64-setup.exe`). Installed copies update themselves.
+            Windows installer below (`DriveMerge_..._x64-setup.exe`). Installed copies update themselves.
             Windows may show a SmartScreen warning because the installer isn't code-signed: click "More info" then "Run anyway".
             What's new: see ROADMAP.md.
           releaseDraft: true

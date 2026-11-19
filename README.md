@@ -1,8 +1,8 @@
-# CloudMerge
+# DriveMerge
 
-Pool several cloud storage accounts (Google Drive, OneDrive, Dropbox, Mega and 60+ more) into one storage space. Free, open-source desktop app (Tauri + React) powered by [rclone](https://rclone.org).
+Merge multiple Google Drive, OneDrive, Dropbox, Mega and 60+ other cloud accounts into one storage space. A free, open-source alternative to MultCloud: a desktop app (Tauri + React) powered by [rclone](https://rclone.org).
 
-**[Download for Windows](https://github.com/aliyaan2618/CloudMerge/releases/latest)** · [Website](https://aliyaan2618.github.io/CloudMerge/) · [Roadmap](ROADMAP.md)
+**[Download for Windows](https://github.com/aliyaan2618/DriveMerge/releases/latest)** · [Website](https://aliyaan2618.github.io/DriveMerge/) · [Roadmap](ROADMAP.md)
 
 Windows 10/11 now; macOS and Linux next. The installer isn't code-signed yet, so Windows SmartScreen may warn on first run: click "More info", then "Run anyway". Installed copies update themselves from GitHub Releases.
 
@@ -11,7 +11,7 @@ Windows 10/11 now; macOS and Linux next. The installer isn't code-signed yet, so
 - File browser across all accounts: upload, download, open, rename, move between accounts, share links, search, duplicates
 - Sync folders (mirror, update, two-way) with filters, preview, reports and schedules
 - Tray icon, start with Windows, notifications, bandwidth limit
-- Command line: `cloudmerge run "Job name"`, `cloudmerge ls pool:` and any rclone command
+- Command line: `drivemerge run "Job name"`, `drivemerge ls pool:` and any rclone command
 
 Guides: [connecting accounts](docs/providers.md) · [Google Drive with your own Google login](docs/google-drive.md)
 
@@ -31,7 +31,7 @@ The first run downloads and checksum-verifies the official rclone build into `sr
 
 Repository secrets used by the workflow:
 - `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: signs updates. Keep a backup of the key; without it, existing installs can't receive updates.
-- `GDRIVE_CLIENT_ID`, `GDRIVE_CLIENT_SECRET` (optional): CloudMerge's own Google login, see [docs/google-drive.md](docs/google-drive.md).
+- `GDRIVE_CLIENT_ID`, `GDRIVE_CLIENT_SECRET` (optional): DriveMerge's own Google login, see [docs/google-drive.md](docs/google-drive.md).
 
 ## Licence
 MIT. Bundles rclone (MIT), see THIRD-PARTY-LICENSES.md. Not affiliated with Google, Microsoft, Dropbox or rclone.

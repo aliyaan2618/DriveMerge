@@ -1,6 +1,6 @@
 # Third-party licences
 
-CloudMerge bundles **rclone** (https://rclone.org), used under the MIT licence:
+DriveMerge bundles **rclone** (https://rclone.org), used under the MIT licence:
 
 ```
 Copyright (C) 2012 by Nick Craig-Wood http://www.craig-wood.com/nick/
@@ -28,7 +28,7 @@ THE SOFTWARE.
 
 ## Other components
 
-CloudMerge is built with Tauri, React, Lucide icons and about 550 Rust and JavaScript libraries, used unmodified. Their licences:
+DriveMerge is built with Tauri, React, Lucide icons and about 550 Rust and JavaScript libraries, used unmodified. Their licences:
 
 - MIT, Apache-2.0, BSD, ISC, Zlib or Unicode-3.0: almost all of them.
 - MPL-2.0: `cssparser`, `cssparser-macros`, `selectors`, `dtoa-short`, `option-ext`. Source code: <https://crates.io>.
