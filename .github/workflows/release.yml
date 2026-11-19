@@ -1,0 +1,59 @@
+# Builds the Windows installer and a signed update file, attached to a draft GitHub Release.
+# Trigger: push a tag like v0.2.0 (the version in package.json must match), or run it by hand.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Unit tests
+        run: node --test src/lib.test.ts
+
+      - name: Version matches tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          v=$(node -p "require('./package.json').version")
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "package.json is $v but the tag is $GITHUB_REF_NAME"; exit 1; }
+
+      # `npm run tauri build` first runs scripts/fetch-rclone.mjs (checksum-verified rclone download).
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Optional: CloudMerge's own Google login (see docs/google-drive.md). Empty = rclone's shared login.
+          VITE_GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          VITE_GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: CloudMerge ${{ github.ref_name }}
+          releaseBody: |
+            Windows installer below (`CloudMerge_..._x64-setup.exe`). Installed copies update themselves.
+            Windows may show a SmartScreen warning because the installer isn't code-signed: click "More info" then "Run anyway".
+            What's new: see ROADMAP.md.
+          releaseDraft: true
+          includeUpdaterJson: true

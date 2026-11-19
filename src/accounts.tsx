@@ -1,0 +1,124 @@
+import { useEffect, useState } from "react";
+import { rc, useRc } from "./rc";
+import { POOL, formatBytes, toggleUpstream, upstreams as upstreamList } from "./lib";
+
+export type Config = Record<string, Record<string, string>>;
+export type About = { total?: number; used?: number; free?: number };
+
+const NAMES: Record<string, string> = {
+  drive: "Google Drive", onedrive: "OneDrive", dropbox: "Dropbox", mega: "Mega", box: "Box", pcloud: "pCloud",
+  sftp: "SFTP", webdav: "WebDAV", s3: "S3", ftp: "FTP", alias: "Folder", local: "Local",
+};
+export const providerName = (type: string) => NAMES[type] ?? type;
+
+const COLORS = ["#4f7cf0", "#22a06b", "#e5484d", "#d97706", "#8b5cf6", "#0ea5e9", "#db2777", "#64748b"];
+export function Badge({ type }: { type: string }) {
+  const color = COLORS[[...type].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
+  return <span className="badge" style={{ background: color }} aria-hidden>{providerName(type).slice(0, 2).toUpperCase()}</span>;
+}
+
+/** All configured accounts (everything except the pool itself) plus the pool's own config. */
+export function useAccounts() {
+  const { data, error, reload, loading } = useRc<Config>("config/dump");
+  const accounts = Object.entries(data ?? {})
+    .filter(([name]) => name !== POOL)
+    .map(([name, cfg]) => ({ name, type: cfg.type, oauth: "token" in cfg }));
+  return { accounts, pool: data?.[POOL], error, reload, loading };
+}
+
+/** `version` re-fetches when it changes, e.g. the pool's upstreams. */
+export function useAbout(fs: string | undefined, version?: string) {
+  const [about, setAbout] = useState<About & { error?: string }>();
+  useEffect(() => {
+    if (!fs) return;
+    rc<About>("operations/about", { fs }).then(setAbout, (e) => setAbout({ error: e.message }));
+  }, [fs, version]);
+  return about;
+}
+
+export function Usage({ fs }: { fs: string }) {
+  const a = useAbout(fs);
+  if (!a) return <span className="small muted">Checking space…</span>;
+  if (a.error) return needsSignIn(a.error)
+    ? <span className="chip error" title={a.error}>Needs sign-in</span>
+    : <span className="small error" title={a.error}>Couldn't read space</span>;
+  const pct = a.total ? ((a.used ?? 0) / a.total) * 100 : 0;
+  return (
+    <div style={{ width: 180 }}>
+      <div className="bar" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}><div style={{ width: `${pct}%` }} /></div>
+      <div className="small muted" style={{ marginTop: 4 }}>{formatBytes(a.used)} of {formatBytes(a.total)}</div>
+    </div>
+  );
+}
+
+/** Creates, updates or removes the union remote so it matches the given upstreams. */
+export async function savePool(pool: Record<string, string> | undefined, upstreams: string, policy?: string) {
+  await writePool(pool, upstreams, policy);
+  // rclone caches the pool's file system; without this it keeps serving the old set of accounts.
+  await rc("fscache/clear");
+}
+
+async function writePool(pool: Record<string, string> | undefined, upstreams: string, policy?: string) {
+  if (!upstreams) return pool && rc("config/delete", { name: POOL });
+  const list = upstreamList(upstreams);
+  // rclone's union refuses a single upstream, so a one-account pool is an alias to that account.
+  // `upstreams` is kept in both cases so the UI can read the pool's members back.
+  const type = list.length > 1 ? "union" : "alias";
+  const parameters = { upstreams, create_policy: policy ?? pool?.create_policy ?? "mfs", remote: list[0] };
+  const opt = { nonInteractive: true };
+  if (pool?.type === type) return rc("config/update", { name: POOL, parameters, opt });
+  if (pool) await rc("config/delete", { name: POOL });
+  return rc("config/create", { name: POOL, type, parameters, opt });
+}
+
+export const setInPool = (pool: Record<string, string> | undefined, name: string, on: boolean) =>
+  savePool(pool, toggleUpstream(pool?.upstreams, name, on));
+
+type Option = { Name: string; Default: unknown; Examples?: { Value: string }[] };
+type OutState = { State?: string; Option?: Option; Error?: string };
+const SETUP_OPT = { nonInteractive: true, obscure: true };
+
+/** Walks rclone's setup questions using their defaults; the OAuth step opens the browser and waits for sign-in. */
+async function answerQuestions(name: string, out: OutState) {
+  for (let i = 0; out.State && i < 20; i++) {
+    if (out.Error) throw new Error(out.Error);
+    const o = out.Option;
+    // shortcut: rclone's shared Google client_id is being retired in 2026; we accept it when the user gave no client_id. Ship our own client_id before release.
+    const yes = o?.Name === "config_is_local" || o?.Name === "config_shared_client_id";
+    const result = yes ? "true" : String(o?.Default ?? o?.Examples?.[0]?.Value ?? "");
+    out = await rc<OutState>("config/update", { name, parameters: {}, opt: { ...SETUP_OPT, continue: true, state: out.State, result } });
+  }
+  if (out.Error) throw new Error(out.Error);
+}
+
+// CloudMerge's own Google login, baked in at build time (GitHub secrets). A desktop app's client secret
+// is not confidential per Google's docs for installed apps; it only identifies the app.
+const GOOGLE_ID = import.meta.env.VITE_GDRIVE_CLIENT_ID as string | undefined;
+const GOOGLE_SECRET = import.meta.env.VITE_GDRIVE_CLIENT_SECRET as string | undefined;
+
+export async function createAccount(name: string, type: string, parameters: Record<string, string>) {
+  if (type === "drive" && GOOGLE_ID && !parameters.client_id) parameters = { ...parameters, client_id: GOOGLE_ID, client_secret: GOOGLE_SECRET ?? "" };
+  await answerQuestions(name, await rc<OutState>("config/create", { name, type, parameters, opt: SETUP_OPT }));
+}
+
+/** Signs in again, keeping the account's name and settings. */
+export async function reconnectAccount(name: string) {
+  await answerQuestions(name, await rc<OutState>("config/update", { name, parameters: {}, opt: SETUP_OPT }));
+  await rc("fscache/clear");
+}
+
+/** rclone has no rename: copy the saved settings (sign-in token included) to the new name, then remove the old one. */
+export async function renameAccount(pool: Record<string, string> | undefined, from: string, to: string) {
+  const { type, ...parameters } = await rc<Record<string, string>>("config/get", { name: from });
+  // nonInteractive returns the first setup question without running it; the settings are already saved by then.
+  await rc("config/create", { name: to, type, parameters, opt: { nonInteractive: true, noObscure: true } });
+  const saved = await rc<Record<string, string>>("config/get", { name: to });
+  if (saved.type !== type) throw new Error("Rename failed: the new account wasn't saved.");
+  const members = upstreamList(pool?.upstreams);
+  if (members.includes(`${from}:`)) await savePool(pool, members.map((u) => (u === `${from}:` ? `${to}:` : u)).join(" "));
+  await rc("config/delete", { name: from });
+  await rc("fscache/clear");
+}
+
+/** True when an rclone error means the account's sign-in expired or was revoked. */
+export const needsSignIn = (error = "") => /token|reconnect|oauth|invalid_grant|unauthori[sz]ed|401/i.test(error);

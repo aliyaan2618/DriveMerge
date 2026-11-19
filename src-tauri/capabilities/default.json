@@ -1,0 +1,25 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "$APPCACHE/**"
+        }
+      ]
+    },
+    "dialog:default",
+    "notification:default",
+    "autostart:default",
+    "updater:default",
+    "process:allow-restart"
+  ]
+}

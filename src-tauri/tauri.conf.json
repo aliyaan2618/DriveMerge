@@ -1,0 +1,59 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CloudMerge",
+  "version": "../package.json",
+  "identifier": "com.cloudmerge.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "CloudMerge",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "externalBin": [
+      "binaries/rclone"
+    ],
+    "resources": {
+      "../THIRD-PARTY-LICENSES.md": "THIRD-PARTY-LICENSES.md",
+      "../cli/cloudmerge.cmd": "cloudmerge.cmd",
+      "../cli/cloudmerge-run.ps1": "cloudmerge-run.ps1"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVGMDQyMUM4RTRCOEFGNDMKUldSRHI3amt5Q0VFN3hZUGxHcERTcUIya2lnT1Q4cHIyLzFtTGFlTG51QXJqeDJaQ1JRMnpjNVgK",
+      "endpoints": [
+        "https://github.com/aliyaan2618/CloudMerge/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}
