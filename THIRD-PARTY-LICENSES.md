@@ -32,6 +32,7 @@ DriveMerge is built with Tauri, React, Lucide icons and about 550 Rust and JavaS
 
 - MIT, Apache-2.0, BSD, ISC, Zlib or Unicode-3.0: almost all of them.
 - MPL-2.0: `cssparser`, `cssparser-macros`, `selectors`, `dtoa-short`, `option-ext`. Source code: <https://crates.io>.
+- CC0-1.0: `simple-icons` (service logos). The logos are trademarks of their owners and are used only to identify each service.
 - CDLA-Permissive-2.0: `webpki-root-certs` (list of trusted certificate authorities).
 
 Each library's licence text is in its source package on crates.io or npmjs.com.

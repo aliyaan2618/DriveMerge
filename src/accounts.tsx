@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Server } from "lucide-react";
+import { siBox, siDropbox, siFilen, siGoogledrive, siMega, siProtondrive, type SimpleIcon } from "simple-icons";
 import { rc, useRc } from "./rc";
 import { POOL, formatBytes, toggleUpstream, upstreams as upstreamList } from "./lib";
 
@@ -11,10 +13,21 @@ const NAMES: Record<string, string> = {
 };
 export const providerName = (type: string) => NAMES[type] ?? type;
 
-const COLORS = ["#4f7cf0", "#22a06b", "#e5484d", "#d97706", "#8b5cf6", "#0ea5e9", "#db2777", "#64748b"];
+// Brand logos (Simple Icons, CC0). Services it doesn't cover get a lettered circle in the brand colour, if known.
+const LOGOS: Record<string, SimpleIcon> = { mega: siMega, drive: siGoogledrive, box: siBox, filen: siFilen, protondrive: siProtondrive, dropbox: siDropbox };
+const BRAND: Record<string, string> = { onedrive: "#0078D4", pcloud: "#17BED0" };
+const SERVERS = new Set(["sftp", "ftp", "webdav", "smb", "s3", "http", "seafile", "swift"]);
+
 export function Badge({ type }: { type: string }) {
-  const color = COLORS[[...type].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
-  return <span className="badge" style={{ background: color }} aria-hidden>{providerName(type).slice(0, 2).toUpperCase()}</span>;
+  const logo = LOGOS[type];
+  if (logo)
+    return (
+      <span className="badge logo" aria-hidden>
+        <svg viewBox="0 0 24 24" width="18" height="18"><path d={logo.path} fill={logo.hex === "000000" ? "var(--text)" : `#${logo.hex}`} /></svg>
+      </span>
+    );
+  if (SERVERS.has(type)) return <span className="badge logo" aria-hidden><Server size={17} color="var(--muted)" /></span>;
+  return <span className="badge" style={{ background: BRAND[type] ?? "#64748b" }} aria-hidden>{providerName(type).slice(0, 2).toUpperCase()}</span>;
 }
 
 /** All configured accounts (everything except the pool itself) plus the pool's own config. */

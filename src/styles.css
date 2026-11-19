@@ -124,3 +124,4 @@ dialog::backdrop { background: #0000004d; backdrop-filter: blur(2px); }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } .bar > div { transition: none; } }
 .row.wrap { flex-wrap: wrap; }
+.badge.logo { background: var(--surface); border: 1px solid var(--border); }
