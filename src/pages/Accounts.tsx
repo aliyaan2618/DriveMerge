@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Loader2, Pencil, Plus, RotateCw, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, Cloud, Database, Layers, Loader2, Pencil, Plus, RotateCw, Search, Trash2 } from "../icons";
+import { PageHeader, Stat } from "../ui";
 import { rc } from "../rc";
 import type { PageProps } from "../App";
 import { Badge, Usage, createAccount, providerName, reconnectAccount, renameAccount, savePool, setInPool, useAbout, useAccounts, type About } from "../accounts";
@@ -53,46 +54,61 @@ export default function Accounts({ addProvider }: PageProps) {
 
   return (
     <>
-      <div className="row between">
-        <p className="muted">Accounts in the pool add their free space to one combined storage.</p>
+      <PageHeader title="Accounts" sub="Accounts in the pool add their free space to one combined storage.">
         <button className="btn primary" onClick={() => dialog.current?.showModal()}><Plus size={16} /> Add account</button>
-      </div>
+      </PageHeader>
       {error && <p className="error">{error}</p>}
 
-      <section className="card">
-        <div className="list">
-          {accounts.map((a) => (
-            <div className="item" key={a.name}>
-              <Badge type={a.type} />
-              <div className="grow">
-                <p className="truncate">{a.name}</p>
-                <p className="small muted">{providerName(a.type)}</p>
-              </div>
-              {busy === `reconnect ${a.name}` ? <span className="small muted row"><Loader2 size={14} className="spin" /> Waiting for sign-in…</span> : <Usage key={key} fs={`${a.name}:`} />}
-              <label className="row small" style={{ gap: 6 }}>
-                <input type="checkbox" checked={inPool.includes(`${a.name}:`)} disabled={!!busy}
-                  onChange={(e) => act("pool", () => setInPool(pool, a.name, e.target.checked))} />
-                In pool
-              </label>
-              <div className="row" style={{ gap: 0 }}>
-                {a.oauth && <button className="icon-btn" title="Sign in again" aria-label={`Sign in to ${a.name} again`} disabled={!!busy}
-                  onClick={() => act(`reconnect ${a.name}`, () => reconnectAccount(a.name))}><RotateCw size={16} /></button>}
-                <button className="icon-btn" title="Rename" aria-label={`Rename ${a.name}`} disabled={!!busy} onClick={() => rename(a.name)}><Pencil size={16} /></button>
-                <button className="icon-btn" title="Remove" aria-label={`Remove ${a.name}`} disabled={!!busy} onClick={() => remove(a.name)}><Trash2 size={16} /></button>
-              </div>
-            </div>
-          ))}
-          {!accounts.length && <p className="muted">No accounts yet.</p>}
-        </div>
+      <section className="card stats" style={{ padding: 0 }}>
+        <Stat icon={Cloud} color="#5b5bf0" label="Accounts" value={accounts.length} foot={`${new Set(accounts.map((a) => a.type)).size} service(s)`} />
+        <Stat icon={Layers} color="#14b8a6" label="In pool" value={inPool.length} foot={inPool.length > 1 ? POLICIES.find((p) => p.id === (pool?.create_policy ?? "mfs"))?.label : "Add 2+ to pool space"} />
+        <Stat icon={Database} color="#0ea5e9" label="Pool free" value={pool ? formatBytes(poolAbout?.free) : "—"} foot={pool ? `of ${formatBytes(poolAbout?.total)}` : "No pool yet"} />
+      </section>
+
+      <section className="card" style={{ padding: 0 }}>
+        <table>
+          <thead><tr><th>Account</th><th style={{ width: 220 }}>Space</th><th style={{ width: 100 }}>In pool</th><th style={{ width: 120 }}><span hidden>Actions</span></th></tr></thead>
+          <tbody>
+            {accounts.map((a) => (
+              <tr key={a.name}>
+                <td>
+                  <span className="row">
+                    <Badge type={a.type} />
+                    <span style={{ minWidth: 0 }}><span className="truncate" style={{ display: "block" }}>{a.name}</span><span className="small muted">{providerName(a.type)}</span></span>
+                  </span>
+                </td>
+                <td>{busy === `reconnect ${a.name}` ? <span className="small muted row"><Loader2 size={14} className="spin" /> Waiting for sign-in…</span> : <Usage key={key} fs={`${a.name}:`} />}</td>
+                <td>
+                  <label className="switch">
+                    <input type="checkbox" role="switch" checked={inPool.includes(`${a.name}:`)} disabled={!!busy} aria-label={`Include ${a.name} in pool`}
+                      onChange={(e) => act("pool", () => setInPool(pool, a.name, e.target.checked))} />
+                    <span />
+                  </label>
+                </td>
+                <td>
+                  <div className="row" style={{ gap: 0, justifyContent: "flex-end" }}>
+                    {a.oauth && <button className="icon-btn" title="Sign in again" aria-label={`Sign in to ${a.name} again`} disabled={!!busy}
+                      onClick={() => act(`reconnect ${a.name}`, () => reconnectAccount(a.name))}><RotateCw size={18} /></button>}
+                    <button className="icon-btn" title="Rename" aria-label={`Rename ${a.name}`} disabled={!!busy} onClick={() => rename(a.name)}><Pencil size={18} /></button>
+                    <button className="icon-btn" title="Remove" aria-label={`Remove ${a.name}`} disabled={!!busy} onClick={() => remove(a.name)}><Trash2 size={18} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!accounts.length && <p className="muted" style={{ padding: 24, textAlign: "center" }}>No accounts yet. Add one to start your pool.</p>}
       </section>
 
       {pool && inPool.length > 1 && (
         <section className="card">
           <div className="row between">
-            <h2>Pool</h2>
-            <p className="muted">{formatBytes(poolAbout?.free)} free of {formatBytes(poolAbout?.total)}</p>
+            <div>
+              <h2 style={{ margin: 0 }}>Where new files go</h2>
+              <p className="small muted">Uploads and syncs into the pool use this rule to pick an account.</p>
+            </div>
           </div>
-          <p className="small muted" style={{ marginBottom: 10 }}>Where new files go</p>
+          <div style={{ height: 12 }} />
           <div className="seg" role="group" aria-label="Where new files go">
             {POLICIES.map((p) => (
               <button key={p.id} aria-pressed={(pool.create_policy ?? "mfs") === p.id} disabled={!!busy}

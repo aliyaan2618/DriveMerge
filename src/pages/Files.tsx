@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { appCacheDir, downloadDir, join } from "@tauri-apps/api/path";
-import { ChevronRight, Copy, Download, ExternalLink, File, Folder, FolderInput, FolderPlus, Link, Loader2, Pencil, RefreshCw, Search, Trash2, Upload, X } from "lucide-react";
+import { ChevronRight, Copy, Download, ExternalLink, File, Folder, FolderInput, FolderPlus, Link, Loader2, Pencil, RefreshCw, Search, Trash2, Upload, X } from "../icons";
 import type { PageProps } from "../App";
 import { inTauri, rc, upload, useRc } from "../rc";
 import { useAccounts } from "../accounts";
+import { PageHeader } from "../ui";
 import { POOL, formatBytes, joinPath, upstreams } from "../lib";
 
 type Item = { Path: string; Name: string; Size: number; ModTime: string; IsDir: boolean };
@@ -157,6 +158,11 @@ export default function Files({ go }: PageProps) {
 
   return (
     <>
+      <PageHeader title="Files" sub={isUnion ? `Everything in your pool, across ${members.length} accounts.` : "Everything in your pool."}>
+        <button className="btn" onClick={mkdir}><FolderPlus size={16} /> New folder</button>
+        <button className="btn primary" onClick={() => input.current?.click()}><Upload size={16} /> Upload</button>
+      </PageHeader>
+
       <div className="row wrap">
         <div className="seg" role="group" aria-label="View">
           <button aria-pressed={view.kind === "browse"} onClick={() => setView({ kind: "browse" })}>Browse</button>
@@ -167,10 +173,6 @@ export default function Files({ go }: PageProps) {
           <input placeholder="Search all files in your pool, then press Enter" aria-label="Search all files" value={query} onChange={(e) => setQuery(e.target.value)} style={{ paddingLeft: 32 }} />
         </form>
         <button className="icon-btn" title="Refresh" aria-label="Refresh" onClick={refresh}><RefreshCw size={16} /></button>
-        {view.kind === "browse" && <>
-          <button className="btn" onClick={mkdir}><FolderPlus size={16} /> New folder</button>
-          <button className="btn primary" onClick={() => input.current?.click()}><Upload size={16} /> Upload</button>
-        </>}
         <input ref={input} type="file" multiple hidden onChange={(e) => { doUpload(e.target.files); e.target.value = ""; }} />
       </div>
 

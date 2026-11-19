@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { inTauri, rc, useRc } from "../rc";
 import { checkForUpdate, installUpdate } from "../update";
+import { PageHeader } from "../ui";
 
 const THEME_KEY = "drivemerge.theme";
 const BW_KEY = "drivemerge.bwlimit";
@@ -79,65 +80,61 @@ export default function Settings() {
 
   return (
     <>
-      <section className="card">
-        <h2>Appearance</h2>
-        <div className="seg" role="group" aria-label="Theme">
-          {(["system", "light", "dark"] as const).map((t) => (
-            <button key={t} aria-pressed={theme === t} onClick={() => pick(t)}>{t[0].toUpperCase() + t.slice(1)}</button>
-          ))}
-        </div>
-      </section>
+      <PageHeader title="Settings" sub="How DriveMerge looks, starts and moves your files." />
 
-      {inTauri && (
-        <section className="card">
-          <h2>Startup</h2>
-          <label className="row">
-            <input type="checkbox" checked={!!autostart} disabled={autostart === undefined} onChange={(e) => toggleAutostart(e.target.checked)} />
-            Start DriveMerge when I sign in to Windows
-          </label>
-          <p className="small muted" style={{ marginTop: 8 }}>
-            It starts quietly in the system tray. Closing the window also keeps DriveMerge running there; use Quit in the tray menu to exit.
-          </p>
-        </section>
-      )}
+      <section className="card settings">
+        <Row title="Theme" desc="Follow Windows, or always use light or dark.">
+          <div className="seg" role="group" aria-label="Theme">
+            {(["system", "light", "dark"] as const).map((t) => (
+              <button key={t} aria-pressed={theme === t} onClick={() => pick(t)}>{t[0].toUpperCase() + t.slice(1)}</button>
+            ))}
+          </div>
+        </Row>
+        {inTauri && (
+          <Row title="Start with Windows" desc="Starts quietly in the system tray. Closing the window also keeps DriveMerge there; use Quit in the tray menu to exit.">
+            <label className="switch">
+              <input type="checkbox" role="switch" aria-label="Start DriveMerge when I sign in to Windows" checked={!!autostart} disabled={autostart === undefined} onChange={(e) => toggleAutostart(e.target.checked)} />
+              <span />
+            </label>
+          </Row>
+        )}
+        <Row title="Bandwidth limit" desc={`For example 5M for 5 MB/s. Leave empty for no limit. Now: ${bw.data?.rate === "off" || !bw.data ? "no limit" : `${bw.data.rate}/s`}. Kept after restart.`}>
+          <form className="row" onSubmit={saveLimit}>
+            <input value={limit} onChange={(e) => setLimit(e.target.value)} placeholder={bw.data?.rate ?? "off"} aria-label="Bandwidth limit" style={{ width: 140 }} />
+            <button className="btn">Apply</button>
+          </form>
+          {msg && <p className="small muted" style={{ marginTop: 6 }}>{msg}</p>}
+        </Row>
+      </section>
 
       {inTauri && installDir && (
-        <section className="card">
-          <h2>Command line</h2>
-          <p className="small muted">
-            Use <code>drivemerge</code> in a terminal for scripts: run saved syncs by name or any rclone command on your pool.
-            To turn it on, run this once in PowerShell, then open a new terminal and type <code>drivemerge help</code>.
-          </p>
-          <div className="row" style={{ marginTop: 10 }}>
-            <input readOnly value={pathCmd} aria-label="PowerShell command to add DriveMerge to PATH" style={{ fontFamily: "ui-monospace, Consolas, monospace", fontSize: 12 }} />
-            <button className="btn" onClick={() => navigator.clipboard.writeText(pathCmd).then(() => setCopied(true))}>{copied ? "Copied" : "Copy"}</button>
-          </div>
-          <p className="small muted" style={{ marginTop: 8 }}>Examples: <code>drivemerge jobs</code> · <code>drivemerge run "Photos backup"</code> · <code>drivemerge ls pool:</code></p>
+        <section className="card settings">
+          <Row title="Command line" desc={<>Run saved syncs by name, or any rclone command on your pool, from a terminal. Run this once in PowerShell, then open a new terminal and type <code>drivemerge help</code>.</>}>
+            <div className="row" style={{ width: "100%" }}>
+              <input readOnly value={pathCmd} aria-label="PowerShell command to add DriveMerge to PATH" className="mono" style={{ fontSize: 12 }} />
+              <button className="btn" onClick={() => navigator.clipboard.writeText(pathCmd).then(() => setCopied(true))}>{copied ? "Copied" : "Copy"}</button>
+            </div>
+            <p className="small muted" style={{ marginTop: 6 }}>Examples: <code>drivemerge jobs</code> · <code>drivemerge run "Photos backup"</code> · <code>drivemerge ls pool:</code></p>
+          </Row>
         </section>
       )}
 
-      <section className="card">
-        <h2>Transfers</h2>
-        <form className="row" onSubmit={saveLimit} style={{ maxWidth: 480 }}>
-          <label className="field grow">
-            <span>Bandwidth limit (e.g. 5M for 5 MB/s, empty for none)</span>
-            <input value={limit} onChange={(e) => setLimit(e.target.value)} placeholder={bw.data?.rate ?? "off"} />
-          </label>
-          <button className="btn" style={{ alignSelf: "end" }}>Apply</button>
-        </form>
-        {msg && <p className="small muted" style={{ marginTop: 8 }}>{msg}</p>}
-        <p className="small muted" style={{ marginTop: 8 }}>Current limit: {bw.data?.rate === "off" || !bw.data ? "none" : `${bw.data.rate}/s`}. Kept after restart.</p>
-      </section>
-
-      <section className="card">
-        <h2>About</h2>
-        <div className="row">
-          <p className="grow">DriveMerge {__APP_VERSION__}</p>
+      <section className="card settings">
+        <Row title={`DriveMerge ${__APP_VERSION__}`} desc={`Powered by rclone ${version.data?.version ?? ""} (MIT licence). Licences are in THIRD-PARTY-LICENSES.md in the install folder.`}>
           {inTauri && <button className="btn" onClick={manualCheck}>Check for updates</button>}
-        </div>
-        {updateMsg && <p className="small muted">{updateMsg}</p>}
-        <p className="small muted">Powered by rclone {version.data?.version} (MIT licence). See THIRD-PARTY-LICENSES.md in the install folder.</p>
+          {updateMsg && <p className="small muted" style={{ marginTop: 6 }}>{updateMsg}</p>}
+        </Row>
       </section>
     </>
+  );
+}
+
+/** A settings row: label and help on the left, the control on the right. */
+function Row({ title, desc, children }: { title: string; desc: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <div className="setting">
+      <div><p style={{ fontWeight: 500 }}>{title}</p><p className="small muted">{desc}</p></div>
+      <div>{children}</div>
+    </div>
   );
 }

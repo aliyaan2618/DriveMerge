@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Cloud, Database, HardDrive, Plus, RefreshCw } from "lucide-react";
+import { ArrowRight, Cloud, Database, HardDrive, Plus, RefreshCw } from "../icons";
 import type { PageProps } from "../App";
 import { Badge, providerName, useAccounts, type About } from "../accounts";
 import { FREE_TIERS, formatBytes, upstreams } from "../lib";
 import { useJobs } from "../jobs";
 import { rc, useRc } from "../rc";
+import { PageHeader, Stat } from "../ui";
 
 // Segment colours for accounts in the storage bar (distinct, readable in light and dark).
 const SEG = ["#5b5bf0", "#f97316", "#14b8a6", "#ec4899", "#eab308", "#0ea5e9", "#84cc16", "#8b5cf6"];
@@ -27,19 +28,6 @@ function greeting() {
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
 
-function Stat({ icon: Icon, color, label, value, foot }: { icon: typeof Cloud; color: string; label: string; value: string; foot: string }) {
-  return (
-    <div className="stat">
-      <p className="row small" style={{ gap: 8 }}>
-        <span className="stat-icon" style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}><Icon size={14} /></span>
-        <span className="muted">{label}</span>
-      </p>
-      <p className="stat-value">{value}</p>
-      <p className="small muted">{foot}</p>
-    </div>
-  );
-}
-
 type Done = { name: string; size: number; error: string; completed_at: string };
 
 export default function Dashboard({ go }: PageProps) {
@@ -51,15 +39,9 @@ export default function Dashboard({ go }: PageProps) {
   const have = accounts.map((a) => a.type);
 
   const header = (
-    <div className="row between">
-      <div>
-        <h1>{greeting()}</h1>
-        <p className="muted" style={{ marginTop: 2 }}>
-          {members.length ? `Your pool combines ${members.length} account${members.length === 1 ? "" : "s"} into one storage space.` : "Add cloud accounts to build your storage pool."}
-        </p>
-      </div>
+    <PageHeader title={greeting()} sub={members.length ? `Your pool combines ${members.length} account${members.length === 1 ? "" : "s"} into one storage space.` : "Add cloud accounts to build your storage pool."}>
       <button className="btn primary" onClick={() => go("accounts", "all")}><Plus size={16} /> Add account</button>
-    </div>
+    </PageHeader>
   );
 
   if (!loading && !accounts.length)

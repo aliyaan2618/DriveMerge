@@ -28,7 +28,7 @@ THE SOFTWARE.
 
 ## Other components
 
-DriveMerge is built with Tauri, React, Lucide icons and about 550 Rust and JavaScript libraries, used unmodified. Their licences:
+DriveMerge is built with Tauri, React, Google Material Symbols (Apache-2.0) and about 550 Rust and JavaScript libraries, used unmodified. Their licences:
 
 - MIT, Apache-2.0, BSD, ISC, Zlib or Unicode-3.0: almost all of them.
 - MPL-2.0: `cssparser`, `cssparser-macros`, `selectors`, `dtoa-short`, `option-ext`. Source code: <https://crates.io>.

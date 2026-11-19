@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity as ActivityIcon, ChevronRight, Cloud, Folder, LayoutDashboard, Layers, Loader2, RefreshCw, Settings as SettingsIcon } from "lucide-react";
+import { Activity as ActivityIcon, ChevronRight, Cloud, Folder, LayoutDashboard, Layers, Loader2, RefreshCw, Settings as SettingsIcon } from "./icons";
 import { rc, ready } from "./rc";
 import { formatBytes } from "./lib";
 import Dashboard from "./pages/Dashboard";

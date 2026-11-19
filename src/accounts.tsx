@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Server } from "lucide-react";
+import { Server } from "./icons";
 import { siBox, siDropbox, siFilen, siGoogledrive, siMega, siProtondrive, type SimpleIcon } from "simple-icons";
 import { rc, useRc } from "./rc";
 import { POOL, formatBytes, toggleUpstream, upstreams as upstreamList } from "./lib";

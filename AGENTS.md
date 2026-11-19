@@ -103,7 +103,7 @@ Use `alias` remotes pointing at local folders as fake accounts. Desktop-only fea
 - The app version lives only in `package.json`; `tauri.conf.json` reads it.
 - `.cmd` and `.ps1` files must keep CRLF line endings (`.gitattributes`).
 - Account names must match `^[A-Za-z0-9_-]{1,40}$` (they go into rclone union upstream strings).
-- Style: plain CSS tokens in `src/styles.css` (light/dark), Lucide icons, no UI framework. Keep screens minimal; label every icon-only button.
+- Style: plain CSS tokens in `src/styles.css` (light/dark), Google Material Symbols via `src/icons.tsx` (add new icons there), shared `PageHeader`/`Stat` in `src/ui.tsx`, no UI framework. Keep screens minimal; label every icon-only button.
 - Out of scope by decision: drive-letter mounting, file encryption, a settings password, a website.
 
 ### Release

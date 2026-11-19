@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
-import { ArrowRight, Clock, Download, Eye, FileText, FolderOpen, Loader2, Pencil, Play, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowRight, Activity, Clock, Download, Eye, FileText, FolderOpen, Loader2, Pencil, Play, Plus, Trash2, Upload, X } from "../icons";
 import { inTauri, rc } from "../rc";
 import { POOL, SYNC_MODES, formatBytes, nextRun, type Repeat, type Schedule, type SyncJob } from "../lib";
 import { exportJobs, getJobs, importJobs, saveJobs, useJobs } from "../jobs";
 import { runJob, useRunner, type Progress } from "../runner";
+import { PageHeader, Stat } from "../ui";
 
 type Report = { job: SyncJob; preview?: Progress };
 
@@ -50,17 +51,26 @@ export default function Sync() {
 
   return (
     <>
-      <div className="row between">
-        <p className="muted">Keep folders on this PC and your pool in step, on demand or on a schedule.</p>
-        <div className="row">
-          {inTauri && <>
-            <button className="icon-btn" aria-label="Import sync jobs" title="Import" onClick={doImport}><Upload size={16} /></button>
-            <button className="icon-btn" aria-label="Export sync jobs" title="Export" onClick={doExport} disabled={!jobs.length}><Download size={16} /></button>
-          </>}
-          <button className="btn primary" onClick={() => open(blank())}><Plus size={16} /> New sync</button>
-        </div>
-      </div>
+      <PageHeader title="Sync" sub="Keep folders on this PC and your pool in step, on demand or on a schedule.">
+        {inTauri && <>
+          <button className="icon-btn" aria-label="Import sync jobs" title="Import" onClick={doImport}><Upload size={18} /></button>
+          <button className="icon-btn" aria-label="Export sync jobs" title="Export" onClick={doExport} disabled={!jobs.length}><Download size={18} /></button>
+        </>}
+        <button className="btn primary" onClick={() => open(blank())}><Plus size={16} /> New sync</button>
+      </PageHeader>
       {msg && <p className="small muted">{msg}</p>}
+
+      {!!jobs.length && (() => {
+        const next = jobs.map((j) => j.nextRun).filter((n): n is number => !!n).sort()[0];
+        const failed = jobs.filter((j) => j.lastRun && !j.lastRun.ok).length;
+        return (
+          <section className="card stats" style={{ padding: 0 }}>
+            <Stat icon={Activity} color="#5b5bf0" label="Sync jobs" value={jobs.length} foot={`${Object.keys(running).length} running now`} />
+            <Stat icon={Clock} color="#f97316" label="Scheduled" value={jobs.filter((j) => j.schedule).length} foot={next ? `Next ${when(next)}` : "No upcoming runs"} />
+            <Stat icon={X} color={failed ? "#e5484d" : "#22a06b"} label="Last run failed" value={failed} foot={failed ? "Open a job's Report to see why" : "All good"} />
+          </section>
+        );
+      })()}
 
       {!jobs.length && <div className="card center" style={{ padding: 48 }}><p className="muted">No sync jobs yet.</p></div>}
 
