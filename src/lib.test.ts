@@ -53,3 +53,17 @@ test("nextRun handles each repeat type", () => {
   assert.equal(iso(nextRun({ repeat: "once", time: "10:00", date: "2026-12-01" }, now)), iso(at("2026-12-01T10:00").getTime()));
   assert.equal(nextRun({ repeat: "once", time: "10:00", date: "2026-01-01" }, now), undefined);
 });
+
+test("taskXml builds a Task Scheduler definition per repeat type", async () => {
+  const { taskXml } = await import("./lib.ts");
+  const base: SyncJob = { ...job, id: "abc-123", name: `Tom & "Jerry"`, schedule: { repeat: "daily", time: "02:00" } };
+  const today = new Date(2026, 10, 20);
+  const daily = taskXml(base, "C:/Program Files/DriveMerge/drivemerge-run.ps1", today);
+  assert.match(daily, /<StartBoundary>2026-11-20T02:00:00<\/StartBoundary><ScheduleByDay>/);
+  assert.ok(daily.includes(`-File &quot;C:/Program Files/DriveMerge/drivemerge-run.ps1&quot; run abc-123 --scheduled`));
+  assert.match(daily, /Tom &amp; &quot;Jerry&quot;/);
+  assert.match(taskXml({ ...base, schedule: { repeat: "weekly", time: "09:30", days: [1, 5] } }, "s.ps1", today), /<DaysOfWeek><Monday \/><Friday \/><\/DaysOfWeek>/);
+  assert.match(taskXml({ ...base, schedule: { repeat: "monthly", time: "08:00", day: 31 } }, "s.ps1", today), /<Day>Last<\/Day>/);
+  assert.match(taskXml({ ...base, schedule: { repeat: "monthly", time: "08:00", day: 15 } }, "s.ps1", today), /<Day>15<\/Day>.*<December \/>/s);
+  assert.match(taskXml({ ...base, schedule: { repeat: "once", time: "10:00", date: "2026-12-01" } }, "s.ps1", today), /<TimeTrigger><StartBoundary>2026-12-01T10:00:00/);
+});

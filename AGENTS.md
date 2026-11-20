@@ -39,7 +39,7 @@ drivemerge lsf pool:Photos                   # list files
 drivemerge copy C:\Backups pool:Backups -P   # copy into the pool (new files go to the account the pool picks)
 drivemerge jobs                              # saved sync jobs (made in the app)
 drivemerge run "Photos backup" --dry-run     # preview a saved job
-drivemerge run "Photos backup"               # run it
+drivemerge run "Photos backup"               # run it (records the result in sync-jobs.json)
 ```
 - Any rclone command works; DriveMerge only points rclone at its own config. Reference: <https://rclone.org/commands/>.
 - `pool:` is an rclone **union** remote over the accounts ticked "In pool" (an **alias** when only one account is in it).
@@ -51,7 +51,7 @@ drivemerge run "Photos backup"               # run it
 | Accounts, sign-in tokens, pool | `%APPDATA%\com.drivemerge.app\rclone.conf` |
 | Sync jobs and schedules | `%APPDATA%\com.drivemerge.app\sync-jobs.json` |
 
-Schedules run only while the app is running (window or tray).
+Schedules run while the app is running (window or tray). With **Settings → Run schedules when DriveMerge is closed**, each scheduled job also gets a Windows task `DriveMerge<job id>` that runs `drivemerge-run.ps1 run <id> --scheduled` (it exits without running if the app is open). Turning the setting off removes the tasks; uninstalling does not.
 
 ---
 
@@ -101,6 +101,9 @@ Use `alias` remotes pointing at local folders as fake accounts. Desktop-only fea
 - Two-way sync (`bisync`) needs both folders to exist and a `--resync` on its first successful run.
 - The engine listens on a random localhost port with a random password per launch and only allows the app's origin (`http://localhost:1420` in dev, `http://tauri.localhost` in release).
 - The app version lives only in `package.json`; `tauri.conf.json` reads it.
+- Task Scheduler XML comes from `taskXml()` in `src/lib.ts` (unit-tested); `src/tasks.ts` keeps tasks in step on every jobs save.
+- Streaming: `src/stream.ts` starts `serve/start type=http` read-only on 127.0.0.1 with a random `baseurl` token; restart it when the pool changes.
+- `drivemerge-run.ps1` runs under Windows PowerShell 5.1: read JSON via `Read-Jobs` (5.1 wraps arrays) and write without a BOM.
 - `.cmd` and `.ps1` files must keep CRLF line endings (`.gitattributes`).
 - Account names must match `^[A-Za-z0-9_-]{1,40}$` (they go into rclone union upstream strings).
 - Style: plain CSS tokens in `src/styles.css` (light/dark), Google Material Symbols via `src/icons.tsx` (add new icons there), shared `PageHeader`/`Stat` in `src/ui.tsx`, no UI framework. Keep screens minimal; label every icon-only button.

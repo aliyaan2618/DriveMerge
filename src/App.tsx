@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { Activity as ActivityIcon, ChevronRight, Cloud, Folder, LayoutDashboard, Layers, Loader2, RefreshCw, Settings as SettingsIcon } from "./icons";
-import { rc, ready } from "./rc";
+import { inTauri, notify, rc, ready } from "./rc";
 import { formatBytes } from "./lib";
 import Dashboard from "./pages/Dashboard";
 import Files from "./pages/Files";
@@ -8,7 +9,7 @@ import Accounts from "./pages/Accounts";
 import Sync from "./pages/Sync";
 import Activity from "./pages/Activity";
 import Settings, { applySavedBandwidth } from "./pages/Settings";
-import { startScheduler } from "./runner";
+import { startScheduler, useRunner } from "./runner";
 import { checkForUpdate, installUpdate } from "./update";
 import type { Update } from "@tauri-apps/plugin-updater";
 
@@ -41,6 +42,31 @@ export default function App() {
   }, []);
 
   useEffect(() => (engine.version ? startScheduler() : undefined), [engine.version]);
+  const active = stats?.transferring?.length ?? 0;
+  const status = active ? `${active} transfer${active > 1 ? "s" : ""} · ${formatBytes(stats?.speed)}/s` : "Idle";
+  const { running } = useRunner();
+  const batch = useRef<{ start: number; files: number; bytes: number; errors: number; sync: boolean } | undefined>(undefined);
+
+  // Live status in the tray menu and the tray icon's hover text.
+  useEffect(() => { if (inTauri && engine.version) invoke("set_tray_status", { text: status }).catch(() => {}); }, [status, engine.version]);
+
+  // Notify when a batch of uploads/downloads/moves finishes, if it took a while (you've probably looked away).
+  // Sync jobs notify on their own, so batches that included one stay quiet here.
+  useEffect(() => {
+    if (!stats) return;
+    const syncing = Object.keys(running).length > 0;
+    if (active && !batch.current) batch.current = { start: Date.now(), files: stats.transfers, bytes: stats.bytes, errors: stats.errors, sync: syncing };
+    else if (active && syncing && batch.current) batch.current.sync = true;
+    else if (!active && batch.current) {
+      const b = batch.current;
+      batch.current = undefined;
+      if (b.sync || Date.now() - b.start < 10_000) return;
+      const files = stats.transfers - b.files, errors = stats.errors - b.errors;
+      notify(errors ? "Transfers finished with errors" : "Transfers finished",
+        `${files} file${files === 1 ? "" : "s"}, ${formatBytes(stats.bytes - b.bytes)}${errors ? ` · ${errors} error${errors === 1 ? "" : "s"}` : ""}`);
+    }
+  }, [stats]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Offline or no release yet: stay quiet; Settings has a manual check that shows errors.
   useEffect(() => void checkForUpdate().then(setUpdate, () => {}), []);
 
@@ -65,7 +91,6 @@ export default function App() {
     );
 
   const current = PAGES.find((p) => p.id === page)!;
-  const active = stats?.transferring?.length ?? 0;
 
   return (
     <div className="app">
@@ -100,7 +125,7 @@ export default function App() {
           )}
           <button className="btn ghost" onClick={() => go("activity")} aria-label="Open activity">
             {active ? <Loader2 size={15} className="spin" /> : <ActivityIcon size={15} />}
-            {active ? `${active} transfer${active > 1 ? "s" : ""} · ${formatBytes(stats?.speed)}/s` : "Idle"}
+            {status}
           </button>
           </div>
         </header>

@@ -105,7 +105,7 @@ export default function Sync() {
             ) : job.lastRun && (
               <div className="row small" style={{ marginTop: 10 }}>
                 <p className={job.lastRun.ok ? "ok" : "error"}>
-                  {job.lastRun.ok ? `Completed: ${job.lastRun.count ?? 0} file(s), ${formatBytes(job.lastRun.bytes ?? 0)}` : `Failed: ${job.lastRun.error}`}
+                  {job.lastRun.source === "cli" ? (job.lastRun.ok ? "Completed from the command line or a Windows schedule" : `Failed: ${job.lastRun.error}`) : job.lastRun.ok ? `Completed: ${job.lastRun.count ?? 0} file(s), ${formatBytes(job.lastRun.bytes ?? 0)}` : `Failed: ${job.lastRun.error}`}
                 </p>
                 <span className="muted">· {new Date(job.lastRun.at).toLocaleString()}</span>
                 <button className="btn" style={{ height: 26, marginLeft: "auto" }} onClick={() => { setReport({ job }); reportDialog.current?.showModal(); }}><FileText size={14} /> Report</button>

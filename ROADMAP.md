@@ -104,7 +104,7 @@ DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 - [x] Copy and move between folders and between accounts
 - [x] Select several files at once
 - [x] Open a file with its usual program (downloads it first)
-- [ ] Stream videos without downloading them first
+- [x] Stream videos and audio without downloading (built-in player; stream link for VLC for other formats)
 - [x] Share links (copy a download link, for services that support links)
 
 **Sync**
@@ -115,19 +115,19 @@ DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 
 **General**
 - [x] Tray icon: closing the window keeps DriveMerge running; Open and Quit in the tray menu
-- [ ] Live status (current transfer) in the tray menu
+- [x] Live status (transfers and speed) in the tray menu and tray icon tooltip
 - [x] Start with Windows (optional)
 - [x] Desktop notifications when a sync finishes or fails
-- [ ] Notifications for uploads and downloads
+- [x] Notifications when a batch of uploads/downloads/moves finishes (if it took 10 s or more)
 - [x] Keep the bandwidth limit after restart
 - [x] Narrow the engine's allowed origin to the app itself
 - [x] App icon and branding
 
 ## Phase 2: power features
 - [x] **Scheduled jobs:** once, daily, weekly or monthly, on any sync job. Runs while DriveMerge is open or in the tray; a run missed while it was closed happens once at the next start
-- [ ] Run scheduled jobs even when DriveMerge isn't running (Windows Task Scheduler)
+- [x] Run scheduled jobs even when DriveMerge isn't running: optional Windows Task Scheduler tasks (Settings), which step aside while the app is open
 - [x] **Command line:** `drivemerge jobs`, `drivemerge run "Job name" [--dry-run]`, and any rclone command on your accounts and pool (`drivemerge ls pool:`). Settings shows the one-line command to add it to PATH
-- [ ] Command-line runs don't update the job's last result in the app yet
+- [x] Command-line and Task Scheduler runs record the job's last result; the app doesn't re-run a job that already ran
 
 ## Phase 3: release on GitHub
 - [x] Support for DriveMerge's own Google login, built in from GitHub secrets (`GDRIVE_CLIENT_ID`/`SECRET`)

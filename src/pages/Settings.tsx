@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { inTauri, rc, useRc } from "../rc";
 import { checkForUpdate, installUpdate } from "../update";
 import { PageHeader } from "../ui";
+import { runWhenClosed, setRunWhenClosed } from "../tasks";
+import { getJobs } from "../jobs";
 
 const THEME_KEY = "drivemerge.theme";
 const BW_KEY = "drivemerge.bwlimit";
@@ -32,6 +34,18 @@ export default function Settings() {
   const [installDir, setInstallDir] = useState("");
   const [copied, setCopied] = useState(false);
   const [updateMsg, setUpdateMsg] = useState("");
+  const [whenClosed, setWhenClosed] = useState(runWhenClosed);
+  const [taskMsg, setTaskMsg] = useState("");
+
+  async function toggleWhenClosed(on: boolean) {
+    setTaskMsg(on ? "Adding Windows scheduled tasks…" : "Removing Windows scheduled tasks…");
+    try {
+      await setRunWhenClosed(on, getJobs());
+      setWhenClosed(on);
+      const n = getJobs().filter((j) => j.schedule).length;
+      setTaskMsg(on ? `${n} scheduled job(s) added to Windows Task Scheduler.` : "Removed from Windows Task Scheduler.");
+    } catch (e) { setTaskMsg(`Couldn't change Windows scheduled tasks: ${(e as Error)?.message ?? e}`); }
+  }
 
   async function manualCheck() {
     setUpdateMsg("Checking…");
@@ -96,6 +110,15 @@ export default function Settings() {
               <input type="checkbox" role="switch" aria-label="Start DriveMerge when I sign in to Windows" checked={!!autostart} disabled={autostart === undefined} onChange={(e) => toggleAutostart(e.target.checked)} />
               <span />
             </label>
+          </Row>
+        )}
+        {inTauri && (
+          <Row title="Run schedules when DriveMerge is closed" desc="Adds a Windows scheduled task for each scheduled sync job, so it still runs when DriveMerge isn't open (you need to be signed in to Windows). A run missed while the PC was off happens when it's next on. Turning this off removes the tasks.">
+            <label className="switch">
+              <input type="checkbox" role="switch" aria-label="Run schedules when DriveMerge is closed" checked={whenClosed} onChange={(e) => toggleWhenClosed(e.target.checked)} />
+              <span />
+            </label>
+            {taskMsg && <p className="small muted" style={{ marginTop: 6 }}>{taskMsg}</p>}
           </Row>
         )}
         <Row title="Bandwidth limit" desc={`For example 5M for 5 MB/s. Leave empty for no limit. Now: ${bw.data?.rate === "off" || !bw.data ? "no limit" : `${bw.data.rate}/s`}. Kept after restart.`}>

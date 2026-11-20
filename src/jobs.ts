@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useSyncExternalStore } from "react";
 import { nextRun, type SyncJob } from "./lib";
+import { syncTasks } from "./tasks";
 
 // Sync jobs live in sync-jobs.json in the app data folder; kept in memory after startup.
 const OLD_KEY = "drivemerge.syncJobs";
@@ -31,12 +32,16 @@ export async function initJobs() {
 
 export const getJobs = () => jobs;
 
+// shortcut: the app keeps jobs in memory, so a `drivemerge run` result written while the app is open
+// is overwritten by the app's next save; re-read the file before saving if that matters.
 export async function saveJobs(next: SyncJob[]) {
+  const prev = jobs;
   jobs = next;
   listeners.forEach((fn) => fn());
   const json = JSON.stringify(next, null, 2);
   if (inTauri) await invoke("save_jobs", { json });
   else try { localStorage.setItem(OLD_KEY, json); } catch { /* preview only */ }
+  syncTasks(prev, next).catch((e) => console.error("Couldn't update Windows scheduled tasks", e));
 }
 
 export const exportJobs = (path: string) => invoke("export_jobs", { path, json: JSON.stringify(jobs, null, 2) });

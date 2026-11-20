@@ -48,7 +48,7 @@ export type SyncJob = {
   schedule?: Schedule;
   /** Epoch ms of the next scheduled run; set from `schedule` whenever the job is saved or runs. */
   nextRun?: number;
-  lastRun?: { at: number; ok: boolean; error?: string; count?: number; bytes?: number; failed?: { name: string; error: string }[] };
+  lastRun?: { at: number; ok: boolean; error?: string; count?: number; bytes?: number; failed?: { name: string; error: string }[]; source?: "cli" };
 };
 
 export type Repeat = "once" | "daily" | "weekly" | "monthly";
@@ -119,3 +119,37 @@ export const FREE_TIERS: { type: string; gb: number; note?: string }[] = [
   { type: "protondrive", gb: 5, note: "Starts at 2 GB; 5 GB after setup tasks" },
   { type: "dropbox", gb: 2 },
 ];
+
+const xml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/**
+ * Windows Task Scheduler definition that runs a job through the command-line script.
+ * XML instead of schtasks flags: schtasks parses dates in the PC's regional format.
+ */
+export function taskXml(job: SyncJob, script: string, today: Date): string {
+  const s = job.schedule!;
+  const date = s.repeat === "once" ? s.date! : today.toLocaleDateString("en-CA"); // YYYY-MM-DD, local
+  const start = `<StartBoundary>${date}T${s.time}:00</StartBoundary>`;
+  // shortcut: day 29/30 are skipped in shorter months (the app moves them to the last day); 31 maps to "Last".
+  const day = (s.day ?? 1) >= 31 ? "Last" : String(s.day ?? 1);
+  const trigger =
+    s.repeat === "once" ? `<TimeTrigger>${start}</TimeTrigger>`
+    : s.repeat === "daily" ? `<CalendarTrigger>${start}<ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay></CalendarTrigger>`
+    : s.repeat === "weekly" ? `<CalendarTrigger>${start}<ScheduleByWeek><DaysOfWeek>${(s.days ?? []).map((d) => `<${WEEKDAYS[d]} />`).join("")}</DaysOfWeek><WeeksInterval>1</WeeksInterval></ScheduleByWeek></CalendarTrigger>`
+    : `<CalendarTrigger>${start}<ScheduleByMonth><DaysOfMonth><Day>${day}</Day></DaysOfMonth><Months>${MONTHS.map((m) => `<${m} />`).join("")}</Months></ScheduleByMonth></CalendarTrigger>`;
+  return `<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Description>${xml(`DriveMerge sync job "${job.name}". Managed by DriveMerge (Settings → Run schedules when DriveMerge is closed).`)}</Description></RegistrationInfo>
+  <Triggers>${trigger}</Triggers>
+  <Settings>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+  </Settings>
+  <Actions Context="Author"><Exec><Command>powershell.exe</Command><Arguments>${xml(`-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "${script}" run ${job.id} --scheduled`)}</Arguments></Exec></Actions>
+</Task>`;
+}

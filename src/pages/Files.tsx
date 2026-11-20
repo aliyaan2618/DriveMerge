@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { appCacheDir, downloadDir, join } from "@tauri-apps/api/path";
-import { ChevronRight, Copy, Download, ExternalLink, File, Folder, FolderInput, FolderPlus, Link, Loader2, Pencil, RefreshCw, Search, Trash2, Upload, X } from "../icons";
+import { ChevronRight, Copy, Download, Play, ExternalLink, File, Folder, FolderInput, FolderPlus, Link, Loader2, Pencil, RefreshCw, Search, Trash2, Upload, X } from "../icons";
 import type { PageProps } from "../App";
 import { inTauri, rc, upload, useRc } from "../rc";
 import { useAccounts } from "../accounts";
 import { PageHeader } from "../ui";
+import { MEDIA, PLAYABLE, streamUrl } from "../stream";
 import { POOL, formatBytes, joinPath, upstreams } from "../lib";
 
 type Item = { Path: string; Name: string; Size: number; ModTime: string; IsDir: boolean };
@@ -24,6 +25,8 @@ export default function Files({ go }: PageProps) {
   const [drag, setDrag] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [moving, setMoving] = useState<Item[]>();
+  const [playing, setPlaying] = useState<{ item: Item; url: string; error?: string }>();
+  const playDialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const moveDialog = useRef<HTMLDialogElement>(null);
   const listing = useRc<{ list: Item[] }>("operations/list", { fs: FS, remote: path });
@@ -145,8 +148,16 @@ export default function Files({ go }: PageProps) {
   const chosen = items.filter((i) => selected.has(i.Path));
   const toggle = (p: string) => setSelected((s) => { const n = new Set(s); n.has(p) ? n.delete(p) : n.add(p); return n; });
 
+  async function play(it: Item) {
+    try {
+      setPlaying({ item: it, url: await streamUrl(pool?.upstreams ?? "", it.Path) });
+      playDialog.current?.showModal();
+    } catch (e) { alert(`Couldn't start streaming: ${(e as Error).message}`); }
+  }
+
   const actions = (it: Item) => (
     <div className="actions">
+      {MEDIA.test(it.Name) && <button className="icon-btn" title="Play without downloading" aria-label={`Play ${it.Name}`} onClick={() => play(it)}><Play size={16} /></button>}
       {!it.IsDir && <button className="icon-btn" title="Open" aria-label={`Open ${it.Name}`} onClick={() => open(it)}><ExternalLink size={16} /></button>}
       <button className="icon-btn" title="Download" aria-label={`Download ${it.Name}`} onClick={() => download([it])}><Download size={16} /></button>
       {!it.IsDir && <button className="icon-btn" title="Copy share link" aria-label={`Copy share link for ${it.Name}`} onClick={() => share(it)}><Link size={16} /></button>}
@@ -260,6 +271,28 @@ export default function Files({ go }: PageProps) {
           </p>
         )}
       </section>
+
+      <dialog ref={playDialog} aria-label="Player" onClose={() => setPlaying(undefined)} style={{ width: "min(960px, calc(100vw - 32px))" }}>
+        {playing && (
+          <div className="dialog-body">
+            <div className="row between">
+              <h2 className="truncate" style={{ margin: 0 }}>{playing.item.Name}</h2>
+              <button className="icon-btn" aria-label="Close player" onClick={() => playDialog.current?.close()}><X size={18} /></button>
+            </div>
+            {PLAYABLE.test(playing.item.Name) && !playing.error ? (
+              /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac)$/i.test(playing.item.Name)
+                ? <audio controls autoPlay src={playing.url} style={{ width: "100%" }} onError={() => setPlaying({ ...playing, error: "This audio format can't be played here." })} />
+                : <video controls autoPlay src={playing.url} style={{ width: "100%", maxHeight: "70vh", borderRadius: 10, background: "#000" }} onError={() => setPlaying({ ...playing, error: "This video format can't be played here." })} />
+            ) : (
+              <p className="banner small">{playing.error ?? "DriveMerge's built-in player can't play this format."} Copy the stream link and open it in VLC (Media → Open Network Stream).</p>
+            )}
+            <div className="row between">
+              <p className="small muted">Streams from your pool while DriveMerge is running. Nothing is downloaded.</p>
+              <button className="btn" onClick={() => navigator.clipboard.writeText(playing.url).then(() => setToast("Stream link copied"))}><Link size={15} /> Copy stream link</button>
+            </div>
+          </div>
+        )}
+      </dialog>
 
       <dialog ref={moveDialog} aria-label="Move or copy" onClose={() => setMoving(undefined)}>
         {moving && <MoveDialog items={moving} accounts={isUnion ? members : []} startPath={path} locate={locate}

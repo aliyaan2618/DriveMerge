@@ -2,7 +2,7 @@ use rand::{distr::Alphanumeric, Rng};
 use serde::Serialize;
 use std::{net::TcpListener, path::PathBuf, process::{Child, Command}, sync::Mutex};
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     Manager, RunEvent, WindowEvent,
 };
@@ -30,6 +30,56 @@ fn stop_engine(state: tauri::State<Rclone>) {
     if let Some(mut c) = state.child.lock().unwrap().take() {
         let _ = c.kill();
         let _ = c.wait();
+    }
+}
+
+/// Windows Task Scheduler entries for sync jobs ("DriveMerge\<job id>"), so schedules run while the app is closed.
+fn schtasks(args: &[&std::ffi::OsStr]) -> Result<(), String> {
+    let mut cmd = Command::new("schtasks.exe");
+    cmd.args(args);
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000); // CREATE_NO_WINDOW
+    let out = cmd.output().map_err(|e| e.to_string())?;
+    if out.status.success() { Ok(()) } else { Err(String::from_utf8_lossy(&out.stderr).trim().to_string()) }
+}
+
+fn task_name(id: &str) -> Result<String, String> {
+    // Job ids are UUIDs; anything else is refused rather than passed to schtasks.
+    if id.is_empty() || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') { return Err("invalid job id".into()); }
+    Ok(format!("DriveMerge\\{id}"))
+}
+
+#[tauri::command]
+fn register_task(id: String, xml: String) -> Result<(), String> {
+    let name = task_name(&id)?;
+    // schtasks wants the XML file in UTF-16 with a byte-order mark.
+    let path = std::env::temp_dir().join(format!("drivemerge-task-{id}.xml"));
+    let mut bytes = vec![0xFF, 0xFE];
+    bytes.extend(xml.encode_utf16().flat_map(|u| u.to_le_bytes()));
+    std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+    let r = schtasks(&["/Create".as_ref(), "/F".as_ref(), "/TN".as_ref(), name.as_ref(), "/XML".as_ref(), path.as_os_str()]);
+    let _ = std::fs::remove_file(&path);
+    r
+}
+
+#[tauri::command]
+fn delete_task(id: String) -> Result<(), String> {
+    let name = task_name(&id)?;
+    // A task that doesn't exist is fine: that's the state we want.
+    match schtasks(&["/Delete".as_ref(), "/F".as_ref(), "/TN".as_ref(), name.as_ref()]) {
+        Err(e) if !e.contains("cannot find") && !e.contains("does not exist") => Err(e),
+        _ => Ok(()),
+    }
+}
+
+/// The tray menu's first line (and the icon's hover text): live transfer status from the UI.
+struct TrayStatus(MenuItem<tauri::Wry>);
+
+#[tauri::command]
+fn set_tray_status(app: tauri::AppHandle, status: tauri::State<TrayStatus>, text: String) {
+    let _ = status.0.set_text(&text);
+    if let Some(tray) = app.tray_by_id("main") {
+        let _ = tray.set_tooltip(Some(format!("DriveMerge · {text}")));
     }
 }
 
@@ -128,12 +178,14 @@ pub fn run() {
         .setup(|app| {
             app.manage(start_rclone(app.handle())?);
 
+            let status = MenuItem::with_id(app, "status", "Starting…", false, None::<&str>)?;
             let open = MenuItem::with_id(app, "open", "Open DriveMerge", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            TrayIconBuilder::new()
+            let sep = PredefinedMenuItem::separator(app)?;
+            TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("DriveMerge")
-                .menu(&Menu::with_items(app, &[&open, &quit])?)
+                .menu(&Menu::with_items(app, &[&status, &sep, &open, &quit])?)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, e| match e.id.as_ref() {
                     "open" => show_main(app),
@@ -146,6 +198,7 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+            app.manage(TrayStatus(status));
 
             // Started by "Start with Windows": stay in the tray.
             if std::env::args().any(|a| a == "--minimized") {
@@ -162,7 +215,7 @@ pub fn run() {
                 let _ = window.hide();
             }
         })
-        .invoke_handler(tauri::generate_handler![rc_info, stop_engine, load_jobs, save_jobs, export_jobs, import_jobs])
+        .invoke_handler(tauri::generate_handler![rc_info, stop_engine, set_tray_status, register_task, delete_task, load_jobs, save_jobs, export_jobs, import_jobs])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {

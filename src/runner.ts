@@ -52,6 +52,8 @@ export async function runJob(job: SyncJob, dryRun = false): Promise<Progress | u
 export async function runDueJobs(now = Date.now()) {
   for (const job of getJobs()) {
     if (!job.schedule || !job.nextRun || job.nextRun > now || state.running[job.id]) continue;
+    // Already ran since it was due (by Windows Task Scheduler while the app was closed): just book the next one.
+    if (job.lastRun && job.lastRun.at >= job.nextRun) { await updateJob(job.id, { nextRun: nextRun(job.schedule, new Date(now)) }); continue; }
     // Book the following run first, so a slow or failing run can't trigger twice.
     await updateJob(job.id, { nextRun: nextRun(job.schedule, new Date(now)) });
     runJob(job);
