@@ -159,7 +159,8 @@ function FreeStorage({ go, have }: { go: PageProps["go"]; have: string[] }) {
         Each account adds its free space to your pool. You can add more than one account of the same service, for example several Google accounts.
       </p>
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
-        {FREE_TIERS.map((t) => {
+        {/* Services not added yet first (largest first); ones you already have move to the end. Sort is stable. */}
+        {[...FREE_TIERS].sort((a, b) => Number(have.includes(a.type)) - Number(have.includes(b.type))).map((t) => {
           const n = have.filter((x) => x === t.type).length;
           return (
             <div key={t.type} className="row" style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
