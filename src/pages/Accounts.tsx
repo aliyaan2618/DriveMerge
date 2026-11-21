@@ -17,14 +17,20 @@ const POPULAR = ["drive", "onedrive", "dropbox", "mega", "box", "pcloud", "sftp"
 // Friendly labels for rclone's option names (per service where they differ).
 const LABELS: Record<string, string> = {
   user: "Email", username: "Email or username", email: "Email", pass: "Password", password: "Password",
-  "2fa": "2FA code", api_key: "API key", host: "Server", port: "Port", url: "Server URL", endpoint: "Server address", provider: "Service",
+  "2fa": "2FA code", mailbox_password: "Mailbox password", otp_secret_key: "2FA secret key", api_key: "API key", host: "Server", port: "Port", url: "Server URL", endpoint: "Server address", provider: "Service",
 };
 const LABELS_BY_TYPE: Record<string, Record<string, string>> = {
   koofr: { password: "App password" }, sftp: { user: "Username" }, ftp: { user: "Username" }, webdav: { user: "Username" }, smb: { user: "Username" },
 };
-const HINTS: Record<string, string> = { "2fa": "Only if two-step verification is on. Enter the current 6-digit code." };
+const HINTS: Record<string, string> = {
+  "2fa": "Only if two-step verification is on. Enter the current 6-digit code.",
+  mailbox_password: "Only if your Proton account uses two passwords (a separate mailbox password).",
+  otp_secret_key: "Optional: the secret behind your 2FA codes, so DriveMerge can sign in again by itself later.",
+};
 // Optional fields worth showing up front instead of under "More options".
 const PROMOTE = new Set(["2fa"]);
+// Advanced options some people need, shown under "More options" (e.g. Proton's two-password accounts).
+const ALSO_SHOW = new Set(["mailbox_password"]);
 
 /** Why this service asks for a password here, and anything special it needs. */
 // Official web sign-in pages of services that need an email and password typed into DriveMerge.
@@ -149,7 +155,7 @@ export default function Accounts() {
                     <span style={{ minWidth: 0 }}><span className="truncate" style={{ display: "block" }}>{a.name}</span><span className="small muted">{providerName(a.type)}</span></span>
                   </span>
                 </td>
-                <td>{busy === `reconnect ${a.name}` ? <span className="small muted row"><Loader2 size={14} className="spin" /> Waiting for sign-in…</span> : <Usage key={key} fs={`${a.name}:`} />}</td>
+                <td>{busy === `reconnect ${a.name}` ? <span className="small muted row"><Loader2 size={14} className="spin" /> Waiting for sign-in…</span> : <Usage key={key} fs={`${a.name}:`} type={a.type} />}</td>
                 <td>
                   <label className="switch">
                     <input type="checkbox" role="switch" checked={inPool.includes(`${a.name}:`)} disabled={!!busy} aria-label={`Include ${a.name} in pool`}
@@ -257,7 +263,7 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
 
   const providerOpt = p.Options.find((o) => o.Name === "provider" && o.Examples?.length);
   const provider = values.provider ?? providerOpt?.Examples?.[0]?.Value ?? "";
-  const opts = p.Options.filter((o) => !o.Advanced && !o.Hide && o.Name !== "provider" && appliesTo(o, provider));
+  const opts = p.Options.filter((o) => (!o.Advanced || ALSO_SHOW.has(o.Name)) && !o.Hide && o.Name !== "provider" && appliesTo(o, provider));
   const required = opts.filter((o) => o.Required || PROMOTE.has(o.Name));
   const optional = opts.filter((o) => !o.Required && !PROMOTE.has(o.Name));
   const oauth = p.Options.some((o) => o.Name === "token");

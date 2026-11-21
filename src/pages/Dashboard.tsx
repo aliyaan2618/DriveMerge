@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Cloud, Database, HardDrive, Plus, RefreshCw } from "../icons";
 import type { PageProps } from "../App";
-import { Badge, providerName, useAccounts, type About } from "../accounts";
+import { Badge, SpaceError, providerName, useAccounts, type About } from "../accounts";
 import { FREE_TIERS, formatBytes, upstreams } from "../lib";
 import { useJobs } from "../jobs";
 import { rc, useRc } from "../rc";
@@ -111,7 +111,7 @@ export default function Dashboard({ go }: PageProps) {
                   <p className="truncate">{a.name}</p>
                   <p className="small muted">{providerName(a.type)}{i < 0 ? " · not in pool" : ""}</p>
                 </div>
-                {s?.error ? <span className="small error" title={s.error}>Couldn't read space</span> : (
+                {s?.error ? <SpaceError error={s.error} type={a.type} /> : (
                   <>
                     <span className="small muted num">{s ? `${formatBytes(s.used)} / ${formatBytes(s.total)}` : "…"}</span>
                     <span className="num" style={{ width: 48, textAlign: "right" }}>{s ? `${ap}%` : ""}</span>

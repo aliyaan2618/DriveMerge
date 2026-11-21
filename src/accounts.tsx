@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Server } from "./icons";
 import { siBox, siDropbox, siFilen, siGoogledrive, siMega, siProtondrive, type SimpleIcon } from "simple-icons";
 import { inTauri, rc, useRc } from "./rc";
+import { tell } from "./dialogs";
 import { invoke } from "@tauri-apps/api/core";
 import { POOL, formatBytes, toggleUpstream, upstreams as upstreamList, authorizeArgs } from "./lib";
 
@@ -59,12 +60,38 @@ export function useAbout(fs: string | undefined, version?: string) {
   return about;
 }
 
-export function Usage({ fs }: { fs: string }) {
+/** Plain-language reason an account's storage space couldn't be read, and what to do. */
+export function spaceProblem(error: string, service: string): { label: string; explain: string; soft?: boolean } {
+  if (/not supported|doesn't support|can't get usage|unsupported/i.test(error))
+    return { label: "Space not reported", soft: true, explain: `${service} doesn't tell other apps how much space is used or free. Your files still work; the account just doesn't count towards the pool's totals.` };
+  if (/human verification|captcha|9001|\b422\b/i.test(error))
+    return { label: "Needs verification", explain: `${service} asked for a human-verification check (a CAPTCHA) that DriveMerge can't show. Sign in once at ${service}'s website in your browser on this PC, wait a few minutes, then click ↻ (Sign in again) next to the account on the Accounts page. If it keeps happening, remove the account and add it again.` };
+  if (/mailbox password|two.password|second password/i.test(error))
+    return { label: "Needs mailbox password", explain: `This ${service} account uses a second "mailbox password". Remove the account, add it again, and fill in Mailbox password under More options.` };
+  if (needsSignIn(error))
+    return { label: "Needs sign-in", explain: `The sign-in for this ${service} account has expired or was revoked. Click ↻ (Sign in again) next to it on the Accounts page.` };
+  if (/2fa|two.factor|otp/i.test(error))
+    return { label: "Needs 2FA code", explain: `${service} wants a current two-step verification code. Remove the account and add it again with the 2FA code filled in.` };
+  if (/timeout|timed out|no such host|connection refused|network/i.test(error))
+    return { label: "Couldn't connect", explain: `Couldn't reach ${service}. Check your internet connection; DriveMerge will try again next time.` };
+  return { label: "Couldn't read space", explain: `${service} didn't answer the request for its storage space.` };
+}
+
+/** Short status for an account whose space couldn't be read; click it for the reason and the raw error. */
+export function SpaceError({ error, type }: { error: string; type: string }) {
+  const p = spaceProblem(error, providerName(type));
+  return (
+    <button type="button" className={`linkish small ${p.soft ? "muted" : "error"}`} title="Show why"
+      onClick={() => tell(p.label, `${p.explain}\n\nDetails: ${error}`)}>
+      {p.label}
+    </button>
+  );
+}
+
+export function Usage({ fs, type = "" }: { fs: string; type?: string }) {
   const a = useAbout(fs);
   if (!a) return <span className="small muted">Checking space…</span>;
-  if (a.error) return needsSignIn(a.error)
-    ? <span className="chip error" title={a.error}>Needs sign-in</span>
-    : <span className="small error" title={a.error}>Couldn't read space</span>;
+  if (a.error) return <SpaceError error={a.error} type={type} />;
   const pct = a.total ? ((a.used ?? 0) / a.total) * 100 : 0;
   return (
     <div style={{ width: 180 }}>
