@@ -32,8 +32,17 @@ export function Badge({ type }: { type: string }) {
 }
 
 /** All configured accounts (everything except the pool itself) plus the pool's own config. */
+const ACCOUNTS_CHANGED = "drivemerge:accounts-changed";
+/** Tells every useAccounts() to reload (e.g. after the Add account dialog closes). */
+export const accountsChanged = () => window.dispatchEvent(new Event(ACCOUNTS_CHANGED));
+
 export function useAccounts() {
   const { data, error, reload, loading } = useRc<Config>("config/dump");
+  useEffect(() => {
+    const fn = () => void reload();
+    window.addEventListener(ACCOUNTS_CHANGED, fn);
+    return () => window.removeEventListener(ACCOUNTS_CHANGED, fn);
+  }, [reload]);
   const accounts = Object.entries(data ?? {})
     .filter(([name]) => name !== POOL)
     .map(([name, cfg]) => ({ name, type: cfg.type, oauth: "token" in cfg }));

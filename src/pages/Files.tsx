@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { appCacheDir, downloadDir, join } from "@tauri-apps/api/path";
 import { ChevronRight, Copy, Download, Play, ExternalLink, File, Folder, FolderInput, FolderPlus, Link, Loader2, Pencil, RefreshCw, Search, Trash2, Upload, X } from "../icons";
-import type { PageProps } from "../App";
 import { inTauri, rc, upload, useRc } from "../rc";
 import { useAccounts } from "../accounts";
 import { PageHeader } from "../ui";
+import { addAccount } from "./Accounts";
 import { MEDIA, PLAYABLE, streamUrl } from "../stream";
 import { ask, askText, tell } from "../dialogs";
 
@@ -16,7 +16,7 @@ type View = { kind: "browse" } | { kind: "search"; q: string } | { kind: "dupes"
 const FS = `${POOL}:`;
 const accountOf = (upstream: string) => upstream.replace(/:$/, "");
 
-export default function Files({ go }: PageProps) {
+export default function Files() {
   const { pool, loading } = useAccounts();
   const members = upstreams(pool?.upstreams).map(accountOf);
   const isUnion = members.length > 1;
@@ -58,7 +58,7 @@ export default function Files({ go }: PageProps) {
       <div className="card center" style={{ padding: 56 }}>
         <h2>No pool yet</h2>
         <p className="muted">Add an account and include it in your pool to start storing files.</p>
-        <button className="btn primary" onClick={() => go("accounts")}>Go to Accounts</button>
+        <button className="btn primary" onClick={() => addAccount()}>Add account</button>
       </div>
     );
 

@@ -5,7 +5,7 @@ import { inTauri, notify, rc, ready } from "./rc";
 import { formatBytes } from "./lib";
 import Dashboard from "./pages/Dashboard";
 import Files from "./pages/Files";
-import Accounts from "./pages/Accounts";
+import Accounts, { AddAccountHost } from "./pages/Accounts";
 import Sync from "./pages/Sync";
 import Activity from "./pages/Activity";
 import Settings, { applySavedBandwidth } from "./pages/Settings";
@@ -16,8 +16,7 @@ import { tell } from "./dialogs";
 
 export type Transfer = { name: string; size: number; bytes: number; percentage: number; speed: number; eta: number | null };
 export type Stats = { bytes: number; speed: number; errors: number; lastError?: string; transfers: number; transferring?: Transfer[] };
-/** `addProvider` opens Accounts with the Add dialog on that service (from the Dashboard's free-storage list). */
-export type PageProps = { go: (page: PageId, addProvider?: string) => void; stats?: Stats; addProvider?: string };
+export type PageProps = { go: (page: PageId) => void; stats?: Stats };
 
 const PAGES = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, Page: Dashboard, group: "Menu" },
@@ -31,8 +30,7 @@ export type PageId = (typeof PAGES)[number]["id"];
 
 export default function App() {
   const [page, setPage] = useState<PageId>("dashboard");
-  const [addProvider, setAddProvider] = useState<string>();
-  const go = (p: PageId, provider?: string) => { setAddProvider(provider); setPage(p); };
+  const go = (p: PageId) => setPage(p);
   const [engine, setEngine] = useState<{ version?: string; error?: string }>({});
   const [stats, setStats] = useState<Stats>();
   const [update, setUpdate] = useState<Update | null>(null);
@@ -131,8 +129,9 @@ export default function App() {
           </div>
         </header>
         <main className="content">
-          <current.Page go={go} stats={stats} addProvider={addProvider} />
+          <current.Page go={go} stats={stats} />
         </main>
+        <AddAccountHost />
       </div>
     </div>
   );

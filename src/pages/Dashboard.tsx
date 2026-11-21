@@ -6,6 +6,7 @@ import { FREE_TIERS, formatBytes, upstreams } from "../lib";
 import { useJobs } from "../jobs";
 import { rc, useRc } from "../rc";
 import { PageHeader, Stat } from "../ui";
+import { addAccount } from "./Accounts";
 
 // Segment colours for accounts in the storage bar (distinct, readable in light and dark).
 const SEG = ["#5b5bf0", "#f97316", "#14b8a6", "#ec4899", "#eab308", "#0ea5e9", "#84cc16", "#8b5cf6"];
@@ -40,7 +41,7 @@ export default function Dashboard({ go }: PageProps) {
 
   const header = (
     <PageHeader title={greeting()} sub={members.length ? `Your pool combines ${members.length} account${members.length === 1 ? "" : "s"} into one storage space.` : "Add cloud accounts to build your storage pool."}>
-      <button className="btn primary" onClick={() => go("accounts", "all")}><Plus size={16} /> Add account</button>
+      <button className="btn primary" onClick={() => addAccount()}><Plus size={16} /> Add account</button>
     </PageHeader>
   );
 
@@ -51,9 +52,9 @@ export default function Dashboard({ go }: PageProps) {
         <div className="card center" style={{ padding: 48 }}>
           <h2>Pool all your clouds into one space</h2>
           <p className="muted">Add your Google Drive, OneDrive, Dropbox and other accounts. DriveMerge adds up their free space.</p>
-          <button className="btn primary" onClick={() => go("accounts", "all")}><Plus size={16} /> Add your first account</button>
+          <button className="btn primary" onClick={() => addAccount()}><Plus size={16} /> Add your first account</button>
         </div>
-        <FreeStorage go={go} have={have} />
+        <FreeStorage have={have} />
       </>
     );
 
@@ -141,13 +142,13 @@ export default function Dashboard({ go }: PageProps) {
         ) : <p className="muted small" style={{ padding: "0 20px 20px" }}>No transfers yet since DriveMerge started.</p>}
       </section>
 
-      <FreeStorage go={go} have={have} />
+      <FreeStorage have={have} />
     </>
   );
 }
 
 /** Services with a free plan the user can add; shows how many of each they already have. */
-function FreeStorage({ go, have }: { go: PageProps["go"]; have: string[] }) {
+function FreeStorage({ have }: { have: string[] }) {
   const total = FREE_TIERS.reduce((sum, t) => sum + t.gb, 0);
   return (
     <section className="card">
@@ -170,14 +171,14 @@ function FreeStorage({ go, have }: { go: PageProps["go"]; have: string[] }) {
                 <p className="small muted truncate" title={t.note}>{n ? `You have ${n}` : t.note ?? "Free plan"}</p>
               </div>
               <button className="btn" style={{ height: 30, padding: "0 10px" }} aria-label={`Add ${n ? "another " : ""}${providerName(t.type)} account`}
-                onClick={() => go("accounts", t.type)}><Plus size={14} /> {n ? "Another" : "Add"}</button>
+                onClick={() => addAccount(t.type)}><Plus size={14} /> {n ? "Another" : "Add"}</button>
             </div>
           );
         })}
       </div>
       <div className="row between" style={{ marginTop: 12 }}>
         <p className="small muted">Free amounts as of November 2026; services can change them.</p>
-        <button className="btn" onClick={() => go("accounts", "all")}>See all 60+ services</button>
+        <button className="btn" onClick={() => addAccount()}>See all 60+ services</button>
       </div>
     </section>
   );

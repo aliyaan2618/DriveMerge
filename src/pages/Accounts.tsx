@@ -4,8 +4,7 @@ import { PageHeader, Stat } from "../ui";
 import { ask, askText, tell } from "../dialogs";
 import { inTauri, rc } from "../rc";
 import { invoke } from "@tauri-apps/api/core";
-import type { PageProps } from "../App";
-import { Badge, Usage, createAccount, providerName, reconnectAccount, renameAccount, savePool, setInPool, useAbout, useAccounts, type About } from "../accounts";
+import { Badge, Usage, accountsChanged, createAccount, providerName, reconnectAccount, renameAccount, savePool, setInPool, useAbout, useAccounts, type About } from "../accounts";
 import { NAME_RE, POLICIES, POOL, formatBytes, toggleUpstream, upstreams } from "../lib";
 
 type Option = { Name: string; Help: string; Required: boolean; Advanced: boolean; Hide: number; IsPassword: boolean; Default: unknown; Provider?: string; Examples?: { Value: string; Help: string }[] };
@@ -44,18 +43,37 @@ function SignInNote({ type }: { type: string }) {
 /** rclone marks some options as belonging to certain sub-services ("koofr", "!other", "a,b"). */
 const appliesTo = (o: Option, provider: string) => !o.Provider || o.Provider.split(",").some((x) => (x.startsWith("!") ? x.slice(1) !== provider : x === provider));
 
-export default function Accounts({ addProvider }: PageProps) {
+// Add account is one dialog for the whole app (mounted once in App), so any page can open it and stay put.
+let openAdd: ((provider?: string) => void) | undefined;
+/** Opens Add account, optionally straight on one service (e.g. "mega"). */
+export const addAccount = (provider?: string) => openAdd?.(provider);
+
+export function AddAccountHost() {
+  const { accounts, pool } = useAccounts();
+  const ref = useRef<HTMLDialogElement>(null);
+  const [initial, setInitial] = useState<string>();
+  const [round, setRound] = useState(0); // fresh form each time it opens
+  useEffect(() => {
+    openAdd = (provider) => { setInitial(provider); setRound((r) => r + 1); ref.current?.showModal(); };
+    return () => { openAdd = undefined; };
+  }, []);
+  return (
+    <dialog ref={ref} aria-label="Add account" onClose={() => { setInitial(undefined); accountsChanged(); }}>
+      <AddAccount key={round} initial={initial} taken={accounts.map((a) => a.name)} onDone={async (name) => {
+        await setInPool(pool, name, true);
+        ref.current?.close();
+      }} onCancel={() => ref.current?.close()} />
+    </dialog>
+  );
+}
+
+export default function Accounts() {
   const { accounts, pool, reload, error } = useAccounts();
   const poolAbout = useAbout(pool ? `${POOL}:` : undefined, pool?.upstreams);
-  const dialog = useRef<HTMLDialogElement>(null);
   const inPool = upstreams(pool?.upstreams);
   const [busy, setBusy] = useState("");
   const [key, setKey] = useState(0); // remounts usage bars after a reconnect
   const taken = accounts.map((a) => a.name);
-
-  // Arriving from the Dashboard's free-storage list: open Add account on that service.
-  const [initial, setInitial] = useState(addProvider);
-  useEffect(() => { if (addProvider) { setInitial(addProvider); dialog.current?.showModal(); } }, [addProvider]);
 
   async function act(label: string, fn: () => Promise<unknown>) {
     setBusy(label);
@@ -85,7 +103,7 @@ export default function Accounts({ addProvider }: PageProps) {
   return (
     <>
       <PageHeader title="Accounts" sub="Accounts in the pool add their free space to one combined storage.">
-        <button className="btn primary" onClick={() => dialog.current?.showModal()}><Plus size={16} /> Add account</button>
+        <button className="btn primary" onClick={() => addAccount()}><Plus size={16} /> Add account</button>
       </PageHeader>
       {error && <p className="error">{error}</p>}
 
@@ -148,13 +166,6 @@ export default function Accounts({ addProvider }: PageProps) {
           <p className="small muted" style={{ marginTop: 8 }}>{POLICIES.find((p) => p.id === (pool.create_policy ?? "mfs"))?.help}</p>
         </section>
       )}
-
-      <dialog ref={dialog} aria-label="Add account" onClose={() => { setInitial(undefined); reload(); }}>
-        <AddAccount key={initial ?? ""} initial={initial} taken={taken} onDone={async (name) => {
-          await setInPool(pool, name, true);
-          dialog.current?.close();
-        }} onCancel={() => dialog.current?.close()} />
-      </dialog>
     </>
   );
 }
