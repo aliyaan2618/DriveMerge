@@ -120,14 +120,19 @@ export function syncRequest(job: SyncJob, dryRun = false): [string, Record<strin
 
 /** Services with a free plan that DriveMerge can add, largest first. Checked November 2026; providers change these. */
 export const FREE_TIERS: { type: string; gb: number; note?: string }[] = [
+  { type: "blomp", gb: 40 },
   { type: "mega", gb: 20 },
   { type: "drive", gb: 15, note: "Shared with Gmail and Photos" },
+  { type: "kdrive", gb: 15 },
   { type: "box", gb: 10, note: "Files up to 250 MB each" },
   { type: "pcloud", gb: 10, note: "Full 10 GB after a short setup checklist" },
   { type: "koofr", gb: 10 },
+  { type: "b2", gb: 10, note: "Downloads beyond the free allowance are billed" },
   { type: "onedrive", gb: 5 },
   { type: "jottacloud", gb: 5 },
   { type: "protondrive", gb: 5, note: "Starts at 2 GB; 5 GB after setup tasks" },
+  { type: "opendrive", gb: 5 },
+  { type: "zoho", gb: 5 },
   { type: "dropbox", gb: 2 },
 ];
 

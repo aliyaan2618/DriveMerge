@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Server } from "./icons";
-import { siBox, siDropbox, siFilen, siGoogledrive, siMega, siProtondrive, type SimpleIcon } from "simple-icons";
+import { siBackblaze, siBox, siDropbox, siFilen, siGoogledrive, siInfomaniak, siMega, siProtondrive, siZoho, type SimpleIcon } from "simple-icons";
 import { inTauri, rc, useRc } from "./rc";
 import { askText, tell } from "./dialogs";
 import { invoke } from "@tauri-apps/api/core";
@@ -11,12 +11,16 @@ export type About = { total?: number; used?: number; free?: number };
 
 const NAMES: Record<string, string> = {
   drive: "Google Drive", onedrive: "OneDrive", dropbox: "Dropbox", mega: "MEGA", box: "Box", pcloud: "pCloud", koofr: "Koofr", filen: "Filen", jottacloud: "Jottacloud", protondrive: "Proton Drive",
+  blomp: "Blomp", kdrive: "kDrive", b2: "Backblaze B2", opendrive: "OpenDrive", zoho: "Zoho WorkDrive", swift: "OpenStack Swift",
   sftp: "SFTP", webdav: "WebDAV", s3: "S3", ftp: "FTP", alias: "Folder", local: "Local",
 };
 export const providerName = (type: string) => NAMES[type] ?? type;
 
 // Brand logos (Simple Icons, CC0). Services it doesn't cover get a lettered circle in the brand colour, if known.
-const LOGOS: Record<string, SimpleIcon> = { mega: siMega, drive: siGoogledrive, box: siBox, filen: siFilen, protondrive: siProtondrive, dropbox: siDropbox };
+const LOGOS: Record<string, SimpleIcon> = {
+  mega: siMega, drive: siGoogledrive, box: siBox, filen: siFilen, protondrive: siProtondrive, dropbox: siDropbox,
+  b2: siBackblaze, zoho: siZoho, kdrive: siInfomaniak,
+};
 const BRAND: Record<string, string> = { onedrive: "#0078D4", pcloud: "#17BED0" };
 const SERVERS = new Set(["sftp", "ftp", "webdav", "smb", "s3", "http", "seafile", "swift"]);
 
@@ -46,7 +50,8 @@ export function useAccounts() {
   }, [reload]);
   const accounts = Object.entries(data ?? {})
     .filter(([name]) => name !== POOL)
-    .map(([name, cfg]) => ({ name, type: cfg.type, oauth: "token" in cfg }));
+    // Blomp is a Swift account with Blomp's sign-in address; show it as Blomp.
+    .map(([name, cfg]) => ({ name, type: cfg.type === "swift" && /ain.net|blomp/i.test(cfg.auth ?? "") ? "blomp" : cfg.type, oauth: "token" in cfg }));
   return { accounts, pool: data?.[POOL], error, reload, loading };
 }
 

@@ -34,6 +34,7 @@ import settings from "@material-symbols/svg-400/outlined/settings.svg?raw";
 import del from "@material-symbols/svg-400/outlined/delete.svg?raw";
 import upload from "@material-symbols/svg-400/outlined/upload.svg?raw";
 import close from "@material-symbols/svg-400/outlined/close.svg?raw";
+import checkCircle from "@material-symbols/svg-400/outlined/check_circle.svg?raw";
 
 export type IconProps = { size?: number; color?: string; className?: string; style?: CSSProperties; strokeWidth?: number };
 export type Icon = (props: IconProps) => ReactElement;
@@ -52,6 +53,7 @@ export const Activity = make(monitoring);
 export const ArrowLeft = make(arrowBack);
 export const ArrowRight = make(arrowForward);
 export const ChevronRight = make(chevronRight);
+export const CheckCircle = make(checkCircle);
 export const Clock = make(schedule);
 export const Cloud = make(cloud);
 export const Copy = make(contentCopy);

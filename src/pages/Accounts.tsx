@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Cloud, Database, ExternalLink, Layers, Loader2, Pencil, Plus, RotateCw, Search, Trash2 } from "../icons";
+import { ArrowLeft, CheckCircle, Cloud, Database, ExternalLink, Layers, Loader2, Pencil, Plus, RotateCw, Search, Trash2 } from "../icons";
 import { PageHeader, Stat } from "../ui";
 import { ask, askText, tell } from "../dialogs";
 import { inTauri, rc } from "../rc";
 import { invoke } from "@tauri-apps/api/core";
 import { Badge, Usage, accountsChanged, createAccount, providerName, reconnectAccount, renameAccount, savePool, setInPool, useAbout, useAccounts, type About } from "../accounts";
-import { NAME_RE, POLICIES, POOL, formatBytes, toggleUpstream, upstreams } from "../lib";
+import { FREE_TIERS, NAME_RE, POLICIES, POOL, formatBytes, toggleUpstream, upstreams } from "../lib";
 
 type Option = { Name: string; Help: string; Required: boolean; Advanced: boolean; Hide: number; IsPassword: boolean; Default: unknown; Provider?: string; Examples?: { Value: string; Help: string }[] };
 type Provider = { Name: string; Description: string; Options: Option[] };
@@ -23,6 +23,7 @@ const LABELS: Record<string, string> = {
 };
 const LABELS_BY_TYPE: Record<string, Record<string, string>> = {
   koofr: { password: "App password" }, sftp: { user: "Username" }, ftp: { user: "Username" }, webdav: { user: "Username" }, smb: { user: "Username" },
+  blomp: { user: "Email", key: "Password" }, b2: { account: "Key ID", key: "Application key" },
 };
 const HINTS: Record<string, string> = {
   "2fa": "Only if two-step verification is on. Enter the current 6-digit code.",
@@ -31,6 +32,12 @@ const HINTS: Record<string, string> = {
 };
 // Optional fields worth showing up front instead of under "More options".
 const PROMOTE = new Set(["2fa"]);
+const PROMOTE_BY_TYPE: Record<string, string[]> = { zoho: ["region"] };
+
+// Services rclone reaches through another backend with fixed settings; listed as their own entry.
+const PRESETS: Record<string, { type: string; description: string; fields: string[]; params: Record<string, string> }> = {
+  blomp: { type: "swift", description: "Blomp cloud storage", fields: ["user", "key"], params: { auth: "https://authenticate.ain.net", tenant: "storage", auth_version: "2" } },
+};
 // Advanced options some people need, shown under "More options" (e.g. Proton's two-password accounts).
 const ALSO_SHOW = new Set(["mailbox_password"]);
 
@@ -87,6 +94,8 @@ function SignInText({ type }: { type: string }) {
     case "protondrive": return <p className="banner small">Proton doesn't offer browser sign-in to other apps (your password also unlocks your encrypted files), so enter your Proton email and password here.</p>;
     case "koofr": return <p className="banner small">Koofr needs an <strong>app password</strong>, not your normal one. Create it at {link("https://app.koofr.net/app/admin/preferences/password", "Koofr → Preferences → Password")}, then paste it below.</p>;
     case "filen": return <p className="banner small">Filen needs an <strong>API key</strong>: install the {link("https://github.com/FilenCloudDienste/filen-cli", "Filen CLI")}, sign in with it, run <code>filen export-api-key</code> and paste the key below.</p>;
+    case "blomp": return <p className="banner small">Blomp has no browser sign-in for other apps, so enter your Blomp email and password here.</p>;
+    case "b2": return <p className="banner small">Create an application key at {link("https://secure.backblaze.com/app_keys.htm", "Backblaze → Application Keys")} and paste its key ID and key below. The first 10 GB of storage are free; downloads beyond the free daily allowance are billed to your Backblaze account.</p>;
     default: return null;
   }
 }
@@ -110,7 +119,7 @@ export function AddAccountHost() {
   }, []);
   return (
     <dialog ref={ref} aria-label="Add account" onClose={() => { setInitial(undefined); accountsChanged(); }}>
-      <AddAccount key={round} initial={initial} taken={accounts.map((a) => a.name)} onDone={async (name) => {
+      <AddAccount key={round} initial={initial} taken={accounts.map((a) => a.name)} have={accounts.map((a) => a.type)} onDone={async (name) => {
         await setInPool(pool, name, true);
         ref.current?.close();
       }} onCancel={() => ref.current?.close()} />
@@ -221,7 +230,7 @@ export default function Accounts() {
   );
 }
 
-function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; taken: string[]; onDone: (name: string) => Promise<unknown>; onCancel: () => void }) {
+function AddAccount({ initial, taken, have, onDone, onCancel }: { initial?: string; taken: string[]; have: string[]; onDone: (name: string) => Promise<unknown>; onCancel: () => void }) {
   const [providers, setProviders] = useState<Provider[]>();
   const [q, setQ] = useState("");
   const [p, setP] = useState<Provider>();
@@ -231,8 +240,14 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
   const [authUrl, setAuthUrl] = useState("");
 
   useEffect(() => {
-    rc<{ providers: Provider[] }>("config/providers").then((r) =>
-      setProviders(r.providers.filter((x) => !HIDDEN.has(x.Name)).sort((a, b) => rank(a) - rank(b) || a.Name.localeCompare(b.Name))));
+    rc<{ providers: Provider[] }>("config/providers").then((r) => {
+      const presets = Object.entries(PRESETS).map(([name, pr]) => ({
+        Name: name, Description: pr.description,
+        Options: (r.providers.find((x) => x.Name === pr.type)?.Options ?? [])
+          .filter((o) => pr.fields.includes(o.Name)).map((o) => ({ ...o, Required: true, IsPassword: o.IsPassword || o.Name === "key" })),
+      }));
+      setProviders([...r.providers.filter((x) => !HIDDEN.has(x.Name)), ...presets]);
+    });
   }, []);
 
   // While waiting for sign-in, show the link in case the browser didn't open.
@@ -261,7 +276,9 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
   if (!providers) return <p className="muted">Loading providers…</p>;
 
   if (!p) {
-    const shown = providers.filter((x) => `${x.Name} ${x.Description}`.toLowerCase().includes(q.toLowerCase()));
+    // Biggest free plan first, services without one after, and ones already added at the bottom.
+    const shown = providers.filter((x) => `${x.Name} ${providerName(x.Name)} ${x.Description}`.toLowerCase().includes(q.toLowerCase()))
+      .sort((a, b) => +have.includes(a.Name) - +have.includes(b.Name) || freeGb(b.Name) - freeGb(a.Name) || rank(a) - rank(b) || a.Name.localeCompare(b.Name));
     return (
       <div className="dialog-body">
         <h2>Add a cloud account</h2>
@@ -273,7 +290,17 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
           {shown.map((x) => (
             <button key={x.Name} className="item nav" style={{ color: "var(--text)" }} onClick={() => pick(x)}>
               <Badge type={x.Name} />
-              <span className="grow"><span>{providerName(x.Name)}</span><br /><span className="small muted">{x.Description}</span></span>
+              <span className="grow" style={{ minWidth: 0 }}>
+                <span className="row" style={{ gap: 6 }}>
+                  {providerName(x.Name)}
+                  {have.includes(x.Name) && <CheckCircle size={16} color="var(--green)" />}
+                </span>
+                <span className="small muted">{x.Description}</span>
+              </span>
+              <span className="small" style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                {freeGb(x.Name) > 0 && <span className="num muted">{freeGb(x.Name)} GB free</span>}
+                {have.includes(x.Name) && <><br /><span style={{ color: "var(--accent)" }}>Add another</span></>}
+              </span>
             </button>
           ))}
         </div>
@@ -285,8 +312,9 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
   const providerOpt = p.Options.find((o) => o.Name === "provider" && o.Examples?.length);
   const provider = values.provider ?? providerOpt?.Examples?.[0]?.Value ?? "";
   const opts = p.Options.filter((o) => (!o.Advanced || ALSO_SHOW.has(o.Name)) && !o.Hide && o.Name !== "provider" && appliesTo(o, provider));
-  const required = opts.filter((o) => o.Required || PROMOTE.has(o.Name));
-  const optional = opts.filter((o) => !o.Required && !PROMOTE.has(o.Name));
+  const promoted = (o: Option) => o.Required || PROMOTE.has(o.Name) || !!PROMOTE_BY_TYPE[p.Name]?.includes(o.Name);
+  const required = opts.filter(promoted);
+  const optional = opts.filter((o) => !promoted(o));
   const tokenSignIn = TOKEN_SIGNIN[p.Name];
   // Jottacloud stores an OAuth token but gets it from a login token, not a browser sign-in.
   const oauth = p.Options.some((o) => o.Name === "token") && !tokenSignIn;
@@ -301,7 +329,8 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
       // "__" keys are form-only answers (e.g. a login token), never saved as rclone settings.
       const params = Object.fromEntries(Object.entries(values).filter(([k, v]) => v !== "" && !k.startsWith("__")));
       if (providerOpt) params.provider = provider;
-      await createAccount(name, p!.Name, params, tokenSignIn ? { [tokenSignIn.question]: values.__login_token ?? "" } : undefined);
+      const preset = PRESETS[p!.Name];
+      await createAccount(name, preset?.type ?? p!.Name, { ...preset?.params, ...params }, tokenSignIn ? { [tokenSignIn.question]: values.__login_token ?? "" } : undefined);
       await onDone(name);
     } catch (err) {
       await rc("config/delete", { name }).catch(() => {});
@@ -326,8 +355,10 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
       <input type={o.IsPassword ? "password" : "text"} required={o.Required} value={values[o.Name] ?? ""}
         autoComplete={o.IsPassword ? "current-password" : o.Name === "2fa" ? "one-time-code" : undefined}
         inputMode={o.Name === "2fa" ? "numeric" : undefined}
+        list={o.Examples?.length ? `ex-${o.Name}` : undefined}
         placeholder={o.Default ? String(o.Default) : ""} onChange={(e) => setValues({ ...values, [o.Name]: e.target.value })} />
-      {(HINTS[o.Name] || !LABELS[o.Name]) && <small className="muted small">{HINTS[o.Name] ?? o.Help.split("\n")[0]}</small>}
+      {!!o.Examples?.length && <datalist id={`ex-${o.Name}`}>{o.Examples.map((x) => <option key={x.Value} value={x.Value}>{x.Help.split("\n")[0]}</option>)}</datalist>}
+      {(HINTS[o.Name] || !(LABELS_BY_TYPE[p.Name]?.[o.Name] ?? LABELS[o.Name])) && <small className="muted small">{HINTS[o.Name] ?? o.Help.split("\n")[0]}</small>}
     </label>
   );
 
@@ -361,7 +392,7 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
       )}
       {required.map(field)}
       {oauth && <p className="banner small">Your browser opens {providerName(p.Name)}'s own sign-in page. Sign in there and click Allow; DriveMerge comes back to the front when you're done. DriveMerge never sees your password.</p>}
-      {!oauth && hasPassword && <p className="small muted">Your password is stored scrambled on this PC and only sent to {providerName(p.Name)}.</p>}
+      {!oauth && hasPassword && <p className="small muted">Your password is stored {PRESETS[p.Name] ? "" : "scrambled "}on this PC and only sent to {providerName(p.Name)}.</p>}
       {authUrl && <p className="small muted">Browser didn't open? <a href={authUrl} onClick={(e) => { e.preventDefault(); import("@tauri-apps/plugin-opener").then((o) => o.openUrl(authUrl)); }}>Open the sign-in page</a></p>}
       {!!optional.length && (
         <details>
@@ -388,6 +419,7 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
   );
 }
 
+const freeGb = (type: string) => FREE_TIERS.find((t) => t.type === type)?.gb ?? 0;
 const rank = (p: Provider) => (POPULAR.indexOf(p.Name) + 1 || 99);
 
 /** A plain-language first line for rclone's setup errors; the raw text stays under "Show details". */
