@@ -32,3 +32,12 @@ From a review of all open rclone issues (21 November 2026). None has a fix in rc
 
 - [ ] **Full account: try the next one** ([rclone#5308](https://github.com/rclone/rclone/issues/5308)): when the account the pool picked is full, retry the upload on another account instead of failing.
 - [ ] **OneDrive in the pool re-uploads files when only the date changed** ([rclone#4869](https://github.com/rclone/rclone/issues/4869)): wastes bandwidth; look for a setting or a patch.
+
+## TeraBox (1 TB free)
+
+Not in DriveMerge because the official rclone doesn't support it.
+
+- **Community version:** rclone pull request [#8508](https://github.com/rclone/rclone/pull/8508) adds a TeraBox backend (~2,500 lines, open since April 2025, never reviewed, conflicts with rclone 1.76 as of 21 November 2026).
+- **How it signs in:** you paste your TeraBox browser cookie (`ndus`). That cookie is full account access, expires, and relies on an unofficial API TeraBox could change or block.
+- **Free tier:** heavily throttled downloads and file-size limits, so it's slow storage in a pool.
+- **Revisit when:** rclone merges #8508, or TeraBox offers a proper sign-in for other apps. If added before that: as an experimental patch on our rclone, with its own form explaining the cookie step and its risks.
