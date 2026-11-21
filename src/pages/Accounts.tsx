@@ -63,12 +63,7 @@ function SignInText({ type }: { type: string }) {
   );
   switch (type) {
     case "mega": return <p className="banner small">MEGA doesn't offer browser sign-in to other apps (your password also unlocks your encrypted files), so enter your MEGA email and password here.</p>;
-    case "protondrive": return (
-      <>
-        <p className="banner warn small"><strong>Proton Drive isn't working with DriveMerge right now.</strong> Proton changed how its servers answer, and the current rclone engine can't connect safely yet. You can add it, but its files won't show until an update fixes this.</p>
-        <p className="banner small">Proton doesn't offer browser sign-in to other apps (your password also unlocks your encrypted files), so enter your Proton email and password here.</p>
-      </>
-    );
+    case "protondrive": return <p className="banner small">Proton doesn't offer browser sign-in to other apps (your password also unlocks your encrypted files), so enter your Proton email and password here.</p>;
     case "koofr": return <p className="banner small">Koofr needs an <strong>app password</strong>, not your normal one. Create it at {link("https://app.koofr.net/app/admin/preferences/password", "Koofr → Preferences → Password")}, then paste it below.</p>;
     case "filen": return <p className="banner small">Filen needs an <strong>API key</strong>: install the {link("https://github.com/FilenCloudDienste/filen-cli", "Filen CLI")}, sign in with it, run <code>filen export-api-key</code> and paste the key below.</p>;
     default: return null;

@@ -79,7 +79,7 @@ DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 
 ### Patched rclone, 21 November 2026
 - [x] Proton Drive: rclone 1.76 refused Proton's https-to-http redirect. DriveMerge now ships rclone built from source with a fix that makes that hop over https (never unencrypted). Patch in `patches/rclone/`, also on the `drivemerge` branch of the private repo aliyaan2618/rclone
-- [ ] Confirm with a real Proton account; then re-add Proton Drive to the free-storage list
+- [x] Confirmed with a real Proton account (21 November 2026); Proton Drive is back on the free-storage list
 - [ ] Send the fix to rclone upstream (optional) so the patch can be dropped
 
 ### Bugs fixed during testing
@@ -105,7 +105,8 @@ DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 
 **Pooling and accounts**
 - [x] OneDrive tested with a real account (21 November 2026; needed the drive-choice retry)
-- [ ] Test Dropbox, MEGA, Box, pCloud, SFTP and WebDAV with real accounts
+- [x] Proton Drive, MEGA, Box and pCloud added with real accounts (21 November 2026)
+- [ ] Test Dropbox, SFTP and WebDAV with real accounts
 - [x] Show which account each file is stored in
 - [x] Rename an account, reconnect an account whose sign-in expired (shows "Needs sign-in")
 - [x] Warn before an account is removed, with how much of the pool it holds

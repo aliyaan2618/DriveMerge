@@ -120,6 +120,7 @@ export const FREE_TIERS: { type: string; gb: number; note?: string }[] = [
   { type: "koofr", gb: 10 },
   { type: "onedrive", gb: 5 },
   { type: "jottacloud", gb: 5 },
+  { type: "protondrive", gb: 5, note: "Starts at 2 GB; 5 GB after setup tasks" },
   { type: "dropbox", gb: 2 },
 ];
 
