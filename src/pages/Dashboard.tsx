@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Cloud, Database, HardDrive, Plus, RefreshCw } from "../icons";
 import type { PageProps } from "../App";
 import { Badge, SpaceError, providerName, useAccounts, type About } from "../accounts";
-import { FREE_TIERS, formatBytes, upstreams } from "../lib";
+import { FREE_TIERS, exactBytes, formatBytes, upstreams } from "../lib";
 import { useJobs } from "../jobs";
 import { rc, useRc } from "../rc";
 import { PageHeader, Stat } from "../ui";
@@ -75,9 +75,9 @@ export default function Dashboard({ go }: PageProps) {
       {header}
 
       <section className="card stats" style={{ padding: 0 }}>
-        <Stat icon={Database} color="#5b5bf0" label="Pool size" value={formatBytes(total)} foot={`Across ${inPool.length} account${inPool.length === 1 ? "" : "s"}`} />
-        <Stat icon={HardDrive} color="#f97316" label="Used" value={formatBytes(used)} foot={`${pct}% of your pool`} />
-        <Stat icon={Cloud} color="#0ea5e9" label="Free" value={formatBytes(free)} foot="Ready for new files" />
+        <Stat icon={Database} color="#5b5bf0" label="Pool size" value={<span title={exactBytes(total)}>{formatBytes(total)}</span>} foot={`Across ${inPool.length} account${inPool.length === 1 ? "" : "s"}`} />
+        <Stat icon={HardDrive} color="#f97316" label="Used" value={<span title={exactBytes(used)}>{formatBytes(used)}</span>} foot={`${pct}% of your pool`} />
+        <Stat icon={Cloud} color="#0ea5e9" label="Free" value={<span title={exactBytes(free)}>{formatBytes(free)}</span>} foot="Ready for new files" />
         <Stat icon={RefreshCw} color="#22a06b" label="Sync jobs" value={String(jobs.length)}
           foot={next ? `Next run ${new Date(next).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : "No schedules set"} />
       </section>

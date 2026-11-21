@@ -22,8 +22,13 @@ export function formatBytes(n?: number | null) {
   const u = ["B", "KB", "MB", "GB", "TB", "PB"];
   let i = 0;
   while (n >= 1024 && i < u.length - 1) (n /= 1024), i++;
-  return `${n >= 100 || i === 0 ? Math.round(n) : n.toFixed(1)} ${u[i]}`;
+  // Two decimals under 10, one under 100, so pooled totals like 5.05 TB aren't rounded to "5.0 TB".
+  const digits = i === 0 || n >= 100 ? 0 : n >= 10 ? 1 : 2;
+  return `${String(Number(n.toFixed(digits)))} ${u[i]}`;
 }
+
+/** Exact size for tooltips, e.g. "5,549,374,111,232 bytes". */
+export const exactBytes = (n?: number | null) => (n == null ? "" : `${n.toLocaleString()} bytes`);
 
 export const joinPath = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
@@ -115,7 +120,6 @@ export const FREE_TIERS: { type: string; gb: number; note?: string }[] = [
   { type: "koofr", gb: 10 },
   { type: "onedrive", gb: 5 },
   { type: "jottacloud", gb: 5 },
-  { type: "protondrive", gb: 5, note: "Starts at 2 GB; 5 GB after setup tasks" },
   { type: "dropbox", gb: 2 },
 ];
 

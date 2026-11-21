@@ -64,6 +64,8 @@ export function useAbout(fs: string | undefined, version?: string) {
 export function spaceProblem(error: string, service: string): { label: string; explain: string; soft?: boolean } {
   if (/not supported|doesn't support|can't get usage|unsupported/i.test(error))
     return { label: "Space not reported", soft: true, explain: `${service} doesn't tell other apps how much space is used or free. Your files still work; the account just doesn't count towards the pool's totals.` };
+  if (/refusing to follow HTTPS to HTTP redirect/i.test(error))
+    return { label: "Not working right now", explain: `${service} changed how its servers answer, and the current rclone (the engine DriveMerge uses) can't follow it safely: it would have to send your sign-in over an unencrypted connection, which DriveMerge won't do. This needs a fix in rclone; it should work again after an update. Your account and files are fine.` };
   if (/human verification|captcha|9001|\b422\b/i.test(error))
     return { label: "Needs verification", explain: `${service} asked for a human-verification check (a CAPTCHA) that DriveMerge can't show. Sign in once at ${service}'s website in your browser on this PC, wait a few minutes, then click ↻ (Sign in again) next to the account on the Accounts page. If it keeps happening, remove the account and add it again.` };
   if (/mailbox password|two.password|second password/i.test(error))

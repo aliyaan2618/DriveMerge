@@ -84,3 +84,13 @@ test("merge combines per-account listings like the pool", async () => {
   assert.deepEqual(r.sources.Photos, ["A", "B"]);
   assert.deepEqual(r.sources["b.txt"], ["B"]);
 });
+
+test("formatBytes keeps pooled totals precise", async () => {
+  const { formatBytes } = await import("./lib.ts");
+  const TB = 1024 ** 4, GB = 1024 ** 3;
+  assert.equal(formatBytes(5 * TB + 48 * GB), "5.05 TB");
+  assert.equal(formatBytes(5 * TB), "5 TB");
+  assert.equal(formatBytes(20 * GB), "20 GB");
+  assert.equal(formatBytes(85.7 * 1024 ** 2), "85.7 MB");
+  assert.equal(formatBytes(512), "512 B");
+});
