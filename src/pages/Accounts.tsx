@@ -11,7 +11,9 @@ type Option = { Name: string; Help: string; Required: boolean; Advanced: boolean
 type Provider = { Name: string; Description: string; Options: Option[] };
 
 // Wrapper and local-only backends: not cloud accounts.
-const HIDDEN = new Set(["alias", "cache", "chunker", "combine", "compress", "crypt", "hasher", "union", "local", "memory", "tardigrade", "uptobox", "archive"]);
+const HIDDEN = new Set(["alias", "cache", "chunker", "combine", "compress", "crypt", "hasher", "union", "local", "memory", "tardigrade", "uptobox", "archive",
+  // shortcut: rclone 1.76 Drime deletes files when a folder is moved (rclone#10370); unhide once rclone ships the fix (PR #10384).
+  "drime"]);
 const POPULAR = ["drive", "onedrive", "dropbox", "mega", "box", "pcloud", "sftp", "webdav"];
 
 // Friendly labels for rclone's option names (per service where they differ).

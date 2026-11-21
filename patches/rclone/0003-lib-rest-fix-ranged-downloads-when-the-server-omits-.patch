@@ -1,0 +1,198 @@
+From 55113ad8c4db2fb92680437b895d0533b1143164 Mon Sep 17 00:00:00 2001
+From: fixfon <12512757+fixfon@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 19:38:57 +0300
+Subject: [PATCH 3/5] lib/rest: fix ranged downloads when the server omits
+ Content-Range - fixes #10349
+
+Some WebDAV servers return HTTP 206 and Content-Length but no
+Content-Range. CheckContentRange rejected those responses, which
+broke rclone cat and restic on those servers after 1.76.0.
+
+If Content-Range is missing, validate the requested range against
+Content-Length. If Content-Length is also missing, keep failing,
+because the length cannot be checked.
+
+(cherry picked from commit 1b67fdd4909e0c2895915b66f1b7a37d77496b8d)
+---
+ lib/rest/headers.go      | 57 +++++++++++++++++++++++++++++++++
+ lib/rest/headers_test.go | 68 +++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 124 insertions(+), 1 deletion(-)
+
+diff --git a/lib/rest/headers.go b/lib/rest/headers.go
+index c1b19af96..bd9ea9bc2 100644
+--- a/lib/rest/headers.go
++++ b/lib/rest/headers.go
+@@ -110,6 +110,10 @@ func CheckContentRange(resp *http.Response, options []fs.OpenOption, size int64)
+ 	}
+ 
+ 	responseRange := resp.Header.Get("Content-Range")
++	// Some servers return 206 with Content-Length but omit Content-Range.
++	if responseRange == "" {
++		return checkRangeByContentLength(resp.ContentLength, requested, size, requestRange)
++	}
+ 	got, err := ParseContentRange(responseRange)
+ 	if err != nil {
+ 		return fmt.Errorf("invalid Content-Range %q: %w", responseRange, err)
+@@ -157,6 +161,59 @@ func CheckContentRange(resp *http.Response, options []fs.OpenOption, size int64)
+ 	return nil
+ }
+ 
++// checkRangeByContentLength checks a 206 response that omitted Content-Range
++// against the length implied by the request and the known representation size.
++func checkRangeByContentLength(contentLength int64, requested *fs.RangeOption, size int64, requestRange string) error {
++	expected, ok := expectedRangeLength(requested, size)
++	if contentLength < 0 {
++		return fmt.Errorf("missing Content-Range and Content-Length for requested range %q", requestRange)
++	}
++	if ok {
++		if contentLength != expected {
++			return fmt.Errorf("Content-Length %d does not match requested range %q", contentLength, requestRange)
++		}
++		return nil
++	}
++	if size >= 0 {
++		// The request is outside the representation, so the length is not valid.
++		return fmt.Errorf("Content-Length %d does not match requested range %q", contentLength, requestRange)
++	}
++	// Suffix length is an upper bound when the complete size is unknown.
++	if requested.Start < 0 && requested.End >= 0 && contentLength > requested.End {
++		return fmt.Errorf("Content-Length %d does not match requested range %q", contentLength, requestRange)
++	}
++	return nil
++}
++
++// expectedRangeLength returns the number of bytes a range request should
++// return when that length can be determined from the request and size.
++func expectedRangeLength(requested *fs.RangeOption, size int64) (int64, bool) {
++	start := requested.Start
++	end := requested.End
++	if start >= 0 {
++		if end >= 0 {
++			if size >= 0 && end >= size {
++				end = size - 1
++			}
++			if end < start {
++				return 0, false
++			}
++			return end - start + 1, true
++		}
++		if size >= 0 {
++			if start >= size {
++				return 0, false
++			}
++			return size - start, true
++		}
++		return 0, false
++	}
++	if size >= 0 && end >= 0 {
++		return min(end, size), true
++	}
++	return 0, false
++}
++
+ // ParseSizeFromHeaders parses HTTP response headers to get the full file size.
+ // Returns -1 if the headers did not exist or were invalid.
+ func ParseSizeFromHeaders(headers http.Header) (size int64) {
+diff --git a/lib/rest/headers_test.go b/lib/rest/headers_test.go
+index 3289b62b5..e7a10a3cc 100644
+--- a/lib/rest/headers_test.go
++++ b/lib/rest/headers_test.go
+@@ -1,11 +1,14 @@
+ package rest
+ 
+ import (
++	"io"
+ 	"net/http"
++	"net/http/httptest"
+ 	"testing"
+ 
+ 	"github.com/rclone/rclone/fs"
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
+ )
+ 
+ func TestParseSizeFromHeaders(t *testing.T) {
+@@ -155,12 +158,44 @@ func TestCheckContentRange(t *testing.T) {
+ 			contentLength: 3,
+ 		},
+ 		{
+-			name:          "missing content range",
++			name:          "missing content range with matching content length",
+ 			status:        http.StatusPartialContent,
+ 			contentLength: 3,
+ 			options:       []fs.OpenOption{&fs.RangeOption{Start: 2, End: 4}},
++		},
++		{
++			name:          "missing content range with wrong content length",
++			status:        http.StatusPartialContent,
++			contentLength: 4,
++			options:       []fs.OpenOption{&fs.RangeOption{Start: 2, End: 4}},
++			wantErr:       true,
++		},
++		{
++			name:          "missing content range and content length",
++			status:        http.StatusPartialContent,
++			contentLength: -1,
++			options:       []fs.OpenOption{&fs.RangeOption{Start: 2, End: 4}},
+ 			wantErr:       true,
+ 		},
++		{
++			name:          "missing content range open ended",
++			status:        http.StatusPartialContent,
++			contentLength: 8,
++			options:       []fs.OpenOption{&fs.RangeOption{Start: 2, End: -1}},
++		},
++		{
++			name:          "missing content range suffix",
++			status:        http.StatusPartialContent,
++			contentLength: 4,
++			options:       []fs.OpenOption{&fs.RangeOption{Start: -1, End: 4}},
++		},
++		{
++			name:          "missing content range first 100 bytes",
++			status:        http.StatusPartialContent,
++			contentLength: 100,
++			unknownSize:   true,
++			options:       []fs.OpenOption{&fs.RangeOption{Start: 0, End: 99}},
++		},
+ 		{
+ 			name:          "wrong unit",
+ 			status:        http.StatusPartialContent,
+@@ -245,3 +280,34 @@ func TestCheckContentRange(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestCheckContentRangeMissingHeaderHTTPTest(t *testing.T) {
++	body := make([]byte, 100)
++	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.Header().Set("Accept-Ranges", "bytes")
++		w.Header().Set("Content-Type", "application/octet-stream")
++		w.Header().Set("Content-Length", "100")
++		w.WriteHeader(http.StatusPartialContent)
++		_, _ = w.Write(body)
++	}))
++	t.Cleanup(ts.Close)
++
++	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
++	require.NoError(t, err)
++	req.Header.Set("Range", "bytes=0-99")
++
++	resp, err := ts.Client().Do(req)
++	require.NoError(t, err)
++	t.Cleanup(func() { _ = resp.Body.Close() })
++
++	assert.Equal(t, http.StatusPartialContent, resp.StatusCode)
++	assert.Empty(t, resp.Header.Get("Content-Range"))
++	assert.Equal(t, int64(100), resp.ContentLength)
++
++	err = CheckContentRange(resp, []fs.OpenOption{&fs.RangeOption{Start: 0, End: 99}}, -1)
++	assert.NoError(t, err)
++
++	got, err := io.ReadAll(resp.Body)
++	require.NoError(t, err)
++	assert.Len(t, got, 100)
++}
+-- 
+2.53.0.windows.3
+

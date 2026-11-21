@@ -1,0 +1,145 @@
+From 7d2213ce53ea67c55585d49decc2f237f2df4f40 Mon Sep 17 00:00:00 2001
+From: fixfon <12512757+fixfon@users.noreply.github.com>
+Date: Tue, 17 Nov 2026 11:33:50 +0300
+Subject: [PATCH 4/5] lib/rest: don't check the range if the server omits
+ Content-Range - fixes #10349
+
+A 206 response without Content-Range is not RFC 9110 compliant, so
+rather than trying to validate it from Content-Length, log a debug
+message and accept the response.
+
+(cherry picked from commit 8ab46ac468f0605ac08405588ed6f748150ed9c8)
+---
+ lib/rest/headers.go      | 57 ++--------------------------------------
+ lib/rest/headers_test.go | 35 +-----------------------
+ 2 files changed, 3 insertions(+), 89 deletions(-)
+
+diff --git a/lib/rest/headers.go b/lib/rest/headers.go
+index bd9ea9bc2..fc8ba0899 100644
+--- a/lib/rest/headers.go
++++ b/lib/rest/headers.go
+@@ -110,9 +110,9 @@ func CheckContentRange(resp *http.Response, options []fs.OpenOption, size int64)
+ 	}
+ 
+ 	responseRange := resp.Header.Get("Content-Range")
+-	// Some servers return 206 with Content-Length but omit Content-Range.
+ 	if responseRange == "" {
+-		return checkRangeByContentLength(resp.ContentLength, requested, size, requestRange)
++		fs.Debugf(nil, "No Content-Range in response to range request %q - not checking range", requestRange)
++		return nil
+ 	}
+ 	got, err := ParseContentRange(responseRange)
+ 	if err != nil {
+@@ -161,59 +161,6 @@ func CheckContentRange(resp *http.Response, options []fs.OpenOption, size int64)
+ 	return nil
+ }
+ 
+-// checkRangeByContentLength checks a 206 response that omitted Content-Range
+-// against the length implied by the request and the known representation size.
+-func checkRangeByContentLength(contentLength int64, requested *fs.RangeOption, size int64, requestRange string) error {
+-	expected, ok := expectedRangeLength(requested, size)
+-	if contentLength < 0 {
+-		return fmt.Errorf("missing Content-Range and Content-Length for requested range %q", requestRange)
+-	}
+-	if ok {
+-		if contentLength != expected {
+-			return fmt.Errorf("Content-Length %d does not match requested range %q", contentLength, requestRange)
+-		}
+-		return nil
+-	}
+-	if size >= 0 {
+-		// The request is outside the representation, so the length is not valid.
+-		return fmt.Errorf("Content-Length %d does not match requested range %q", contentLength, requestRange)
+-	}
+-	// Suffix length is an upper bound when the complete size is unknown.
+-	if requested.Start < 0 && requested.End >= 0 && contentLength > requested.End {
+-		return fmt.Errorf("Content-Length %d does not match requested range %q", contentLength, requestRange)
+-	}
+-	return nil
+-}
+-
+-// expectedRangeLength returns the number of bytes a range request should
+-// return when that length can be determined from the request and size.
+-func expectedRangeLength(requested *fs.RangeOption, size int64) (int64, bool) {
+-	start := requested.Start
+-	end := requested.End
+-	if start >= 0 {
+-		if end >= 0 {
+-			if size >= 0 && end >= size {
+-				end = size - 1
+-			}
+-			if end < start {
+-				return 0, false
+-			}
+-			return end - start + 1, true
+-		}
+-		if size >= 0 {
+-			if start >= size {
+-				return 0, false
+-			}
+-			return size - start, true
+-		}
+-		return 0, false
+-	}
+-	if size >= 0 && end >= 0 {
+-		return min(end, size), true
+-	}
+-	return 0, false
+-}
+-
+ // ParseSizeFromHeaders parses HTTP response headers to get the full file size.
+ // Returns -1 if the headers did not exist or were invalid.
+ func ParseSizeFromHeaders(headers http.Header) (size int64) {
+diff --git a/lib/rest/headers_test.go b/lib/rest/headers_test.go
+index e7a10a3cc..f27553a95 100644
+--- a/lib/rest/headers_test.go
++++ b/lib/rest/headers_test.go
+@@ -158,44 +158,11 @@ func TestCheckContentRange(t *testing.T) {
+ 			contentLength: 3,
+ 		},
+ 		{
+-			name:          "missing content range with matching content length",
++			name:          "missing content range",
+ 			status:        http.StatusPartialContent,
+ 			contentLength: 3,
+ 			options:       []fs.OpenOption{&fs.RangeOption{Start: 2, End: 4}},
+ 		},
+-		{
+-			name:          "missing content range with wrong content length",
+-			status:        http.StatusPartialContent,
+-			contentLength: 4,
+-			options:       []fs.OpenOption{&fs.RangeOption{Start: 2, End: 4}},
+-			wantErr:       true,
+-		},
+-		{
+-			name:          "missing content range and content length",
+-			status:        http.StatusPartialContent,
+-			contentLength: -1,
+-			options:       []fs.OpenOption{&fs.RangeOption{Start: 2, End: 4}},
+-			wantErr:       true,
+-		},
+-		{
+-			name:          "missing content range open ended",
+-			status:        http.StatusPartialContent,
+-			contentLength: 8,
+-			options:       []fs.OpenOption{&fs.RangeOption{Start: 2, End: -1}},
+-		},
+-		{
+-			name:          "missing content range suffix",
+-			status:        http.StatusPartialContent,
+-			contentLength: 4,
+-			options:       []fs.OpenOption{&fs.RangeOption{Start: -1, End: 4}},
+-		},
+-		{
+-			name:          "missing content range first 100 bytes",
+-			status:        http.StatusPartialContent,
+-			contentLength: 100,
+-			unknownSize:   true,
+-			options:       []fs.OpenOption{&fs.RangeOption{Start: 0, End: 99}},
+-		},
+ 		{
+ 			name:          "wrong unit",
+ 			status:        http.StatusPartialContent,
+-- 
+2.53.0.windows.3
+

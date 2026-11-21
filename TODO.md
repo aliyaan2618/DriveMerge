@@ -14,3 +14,7 @@ DriveMerge ships rclone built with our own fix for Proton Drive (`patches/rclone
   - [ ] Check rclone's issues and pull requests for an existing fix for the same error, and link any issue in the PR.
   - [ ] Open the PR from a public fork of rclone (the private copy can't be used for a PR), with the commit message already on the branch.
 - **After rclone releases the fix:** bump `RCLONE_TAG` in `scripts/build-rclone.mjs`, delete the patch, and (if no patches remain) switch the release workflow back to `scripts/fetch-rclone.mjs`.
+
+## Drop rclone patches as upstream fixes ship
+
+Each time rclone releases a new version, check [patches/rclone/README.md](patches/rclone/README.md): drop patches whose pull request is in that release, bump `RCLONE_TAG`, and unhide Drime once rclone#10384 ships.
