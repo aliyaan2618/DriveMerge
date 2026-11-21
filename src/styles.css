@@ -166,3 +166,5 @@ dialog::backdrop { background: #0000004d; backdrop-filter: blur(2px); }
 .setting + .setting { border-top: 1px solid var(--border); }
 code { font-family: var(--mono); font-size: 12px; background: var(--hover); padding: 1px 5px; border-radius: 5px; }
 .card.center { height: auto; }
+.btn.danger-solid { background: var(--red); border-color: var(--red); color: #fff; }
+.btn.danger-solid:hover { opacity: 0.9; }

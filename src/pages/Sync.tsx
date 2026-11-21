@@ -5,6 +5,7 @@ import { POOL, SYNC_MODES, formatBytes, nextRun, type Repeat, type Schedule, typ
 import { exportJobs, getJobs, importJobs, saveJobs, useJobs } from "../jobs";
 import { runJob, useRunner, type Progress } from "../runner";
 import { PageHeader, Stat } from "../ui";
+import { ask, tell } from "../dialogs";
 
 type Report = { job: SyncJob; preview?: Progress };
 
@@ -27,13 +28,13 @@ export default function Sync() {
   const dialog = useRef<HTMLDialogElement>(null);
   const reportDialog = useRef<HTMLDialogElement>(null);
 
-  const save = (j: SyncJob[]) => saveJobs(j).catch((e) => alert(`Couldn't save sync jobs: ${e?.message ?? e}`));
+  const save = (j: SyncJob[]) => saveJobs(j).catch((e) => tell("Couldn't save sync jobs", String(e?.message ?? e)));
 
   async function preview(job: SyncJob) {
     try {
       const stats = await runJob(job, true);
       if (stats) { setReport({ job, preview: stats }); reportDialog.current?.showModal(); }
-    } catch (e) { alert((e as Error).message); }
+    } catch (e) { tell("Preview failed", (e as Error).message); }
   }
 
   const open = (job: SyncJob) => { setEditing(job); dialog.current?.showModal(); };
@@ -41,12 +42,12 @@ export default function Sync() {
   async function doExport() {
     const { save } = await import("@tauri-apps/plugin-dialog");
     const path = await save({ defaultPath: "drivemerge-sync-jobs.json", filters: [{ name: "JSON", extensions: ["json"] }] });
-    if (path) await exportJobs(path).then(() => setMsg(`Exported ${jobs.length} job(s).`), (e) => alert(e));
+    if (path) await exportJobs(path).then(() => setMsg(`Exported ${jobs.length} job(s).`), (e) => tell("Export failed", String(e)));
   }
   async function doImport() {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const path = await open({ filters: [{ name: "JSON", extensions: ["json"] }] });
-    if (typeof path === "string") await importJobs(path).then((n) => setMsg(`Imported ${n} job(s). Their schedules are kept.`), (e) => alert(e));
+    if (typeof path === "string") await importJobs(path).then((n) => setMsg(`Imported ${n} job(s). Their schedules are kept.`), (e) => tell("Import failed", String(e)));
   }
 
   return (
@@ -91,7 +92,7 @@ export default function Sync() {
               </div>
               {!jobid && <>
                 <button className="icon-btn" aria-label={`Edit ${job.name}`} title="Edit" onClick={() => open(job)}><Pencil size={16} /></button>
-                <button className="icon-btn" aria-label={`Delete ${job.name}`} title="Delete" onClick={() => confirm(`Delete the sync job "${job.name}"? Your files are not touched.`) && save(jobs.filter((j) => j.id !== job.id))}><Trash2 size={16} /></button>
+                <button className="icon-btn" aria-label={`Delete ${job.name}`} title="Delete" onClick={async () => (await ask({ title: `Delete "${job.name}"?`, message: "Only the sync job is removed. Your files aren't touched.", confirm: "Delete job", danger: true })) && save(getJobs().filter((j) => j.id !== job.id))}><Trash2 size={16} /></button>
                 <button className="btn" onClick={() => preview(job)}><Eye size={15} /> Preview</button>
                 <button className="btn" onClick={() => runJob(job)}><Play size={15} /> Run now</button>
               </>}

@@ -6,6 +6,9 @@ import { inTauri, rc, upload, useRc } from "../rc";
 import { useAccounts } from "../accounts";
 import { PageHeader } from "../ui";
 import { MEDIA, PLAYABLE, streamUrl } from "../stream";
+import { ask, askText, tell } from "../dialogs";
+
+const badName = (v: string) => (/[\\/]/.test(v) ? "Names can't contain / or \\." : "");
 import { POOL, formatBytes, joinPath, upstreams } from "../lib";
 
 type Item = { Path: string; Name: string; Size: number; ModTime: string; IsDir: boolean };
@@ -69,7 +72,7 @@ export default function Files({ go }: PageProps) {
       if (done) setTimeout(() => setToast(""), 3500);
     } catch (e) {
       setToast("");
-      alert((e as Error).message);
+      tell("Something went wrong", (e as Error).message);
     }
     refresh();
   }
@@ -85,7 +88,7 @@ export default function Files({ go }: PageProps) {
     files?.length && run(`Uploading ${files.length} file${files.length > 1 ? "s" : ""}…`, () => upload(FS, path, files), "Upload finished");
 
   async function download(items: Item[]) {
-    if (!inTauri) return alert("Downloads work in the desktop app.");
+    if (!inTauri) return tell("Downloads work in the desktop app.");
     const dir = await downloadDir();
     await run("Starting download…", () => Promise.all(items.map((it) =>
       it.IsDir
@@ -96,7 +99,7 @@ export default function Files({ go }: PageProps) {
 
   async function open(it: Item) {
     if (it.IsDir) return view.kind === "browse" ? setPath(it.Path) : (setView({ kind: "browse" }), setPath(it.Path));
-    if (!inTauri) return alert("Opening files works in the desktop app.");
+    if (!inTauri) return tell("Opening files works in the desktop app.");
     await run(`Opening ${it.Name}…`, async () => {
       // Downloads into the app's cache folder, then opens with the program Windows uses for that file type.
       const dir = await join(await appCacheDir(), "open");
@@ -115,10 +118,9 @@ export default function Files({ go }: PageProps) {
     }, "Link copied. Anyone with the link can download this.");
   }
 
-  function rename(it: Item) {
-    const name = prompt("New name", it.Name)?.trim();
+  async function rename(it: Item) {
+    const name = await askText({ title: `Rename ${it.Name}`, label: "New name", value: it.Name, confirm: "Rename", validate: badName });
     if (!name || name === it.Name) return;
-    if (/[\\/]/.test(name)) return alert("Names can't contain / or \\.");
     const to = joinPath(it.Path.split("/").slice(0, -1).join("/"), name);
     run("Renaming…", () =>
       it.IsDir
@@ -126,15 +128,15 @@ export default function Files({ go }: PageProps) {
         : rc("operations/movefile", { srcFs: FS, srcRemote: it.Path, dstFs: FS, dstRemote: to }));
   }
 
-  function remove(items: Item[]) {
+  async function remove(items: Item[]) {
     const what = items.length === 1 ? `"${items[0].Name}"${items[0].IsDir ? " and everything in it" : ""}` : `${items.length} items`;
-    if (!confirm(`Delete ${what}? This can't be undone.`)) return;
+    if (!(await ask({ title: `Delete ${what}?`, message: "It's deleted from the cloud account that holds it. This can't be undone.", confirm: "Delete", danger: true }))) return;
     run("Deleting…", () => Promise.all(items.map((it) => rc(it.IsDir ? "operations/purge" : "operations/deletefile", { fs: FS, remote: it.Path }))));
   }
 
-  function mkdir() {
-    const name = prompt("Folder name")?.trim();
-    if (name && !/[\\/]/.test(name)) run("Creating folder…", () => rc("operations/mkdir", { fs: FS, remote: joinPath(path, name) }));
+  async function mkdir() {
+    const name = await askText({ title: "New folder", label: "Folder name", confirm: "Create", validate: badName });
+    if (name) run("Creating folder…", () => rc("operations/mkdir", { fs: FS, remote: joinPath(path, name) }));
   }
 
   const startMove = (items: Item[]) => { setMoving(items); moveDialog.current?.showModal(); };
@@ -152,7 +154,7 @@ export default function Files({ go }: PageProps) {
     try {
       setPlaying({ item: it, url: await streamUrl(pool?.upstreams ?? "", it.Path) });
       playDialog.current?.showModal();
-    } catch (e) { alert(`Couldn't start streaming: ${(e as Error).message}`); }
+    } catch (e) { tell("Couldn't start streaming", (e as Error).message); }
   }
 
   const actions = (it: Item) => (

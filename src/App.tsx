@@ -12,6 +12,7 @@ import Settings, { applySavedBandwidth } from "./pages/Settings";
 import { startScheduler, useRunner } from "./runner";
 import { checkForUpdate, installUpdate } from "./update";
 import type { Update } from "@tauri-apps/plugin-updater";
+import { tell } from "./dialogs";
 
 export type Transfer = { name: string; size: number; bytes: number; percentage: number; speed: number; eta: number | null };
 export type Stats = { bytes: number; speed: number; errors: number; lastError?: string; transfers: number; transferring?: Transfer[] };
@@ -119,7 +120,7 @@ export default function App() {
           <div className="row">
           {update && (
             <button className="btn primary" disabled={installing} title={update.body ?? ""}
-              onClick={() => { setInstalling(true); installUpdate(update).catch((e) => { setInstalling(false); alert(`Update failed: ${e?.message ?? e}`); }); }}>
+              onClick={() => { setInstalling(true); installUpdate(update).catch((e) => { setInstalling(false); tell("Update failed", String(e?.message ?? e)); }); }}>
               {installing ? <><Loader2 size={15} className="spin" /> Updating…</> : `Update to ${update.version}`}
             </button>
           )}

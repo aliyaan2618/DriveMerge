@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { inTauri, rc, useRc } from "../rc";
 import { checkForUpdate, installUpdate } from "../update";
 import { PageHeader } from "../ui";
+import { ask, tell } from "../dialogs";
 import { runWhenClosed, setRunWhenClosed } from "../tasks";
 import { getJobs } from "../jobs";
 
@@ -52,7 +53,7 @@ export default function Settings() {
     try {
       const u = await checkForUpdate();
       if (!u) return setUpdateMsg("You have the latest version.");
-      if (!confirm(`DriveMerge ${u.version} is available. Install it and restart now?`)) return setUpdateMsg(`Version ${u.version} is available.`);
+      if (!(await ask({ title: `Update to DriveMerge ${u.version}?`, message: "DriveMerge will download the update, install it and restart. Running transfers are stopped.", confirm: "Install and restart" }))) return setUpdateMsg(`Version ${u.version} is available.`);
       setUpdateMsg("Downloading update…");
       await installUpdate(u);
     } catch (e) {
@@ -89,7 +90,7 @@ export default function Settings() {
     try {
       await (on ? a.enable() : a.disable());
       setAutostart(await a.isEnabled());
-    } catch (e) { alert((e as Error).message ?? String(e)); }
+    } catch (e) { tell("Couldn't change startup setting", (e as Error).message ?? String(e)); }
   }
 
   return (

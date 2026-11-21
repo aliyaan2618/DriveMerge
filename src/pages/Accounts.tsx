@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Cloud, Database, Layers, Loader2, Pencil, Plus, RotateCw, Search, Trash2 } from "../icons";
 import { PageHeader, Stat } from "../ui";
+import { ask, askText, tell } from "../dialogs";
 import { rc } from "../rc";
 import type { PageProps } from "../App";
 import { Badge, Usage, createAccount, providerName, reconnectAccount, renameAccount, savePool, setInPool, useAbout, useAccounts, type About } from "../accounts";
@@ -28,7 +29,7 @@ export default function Accounts({ addProvider }: PageProps) {
 
   async function act(label: string, fn: () => Promise<unknown>) {
     setBusy(label);
-    try { await fn(); } catch (e) { alert((e as Error).message); }
+    try { await fn(); } catch (e) { tell("Something went wrong", (e as Error).message); }
     setBusy("");
     setKey((k) => k + 1);
     reload();
@@ -36,19 +37,18 @@ export default function Accounts({ addProvider }: PageProps) {
 
   async function remove(name: string) {
     const about = await rc<About>("operations/about", { fs: `${name}:` }).catch(() => undefined);
-    const held = inPool.includes(`${name}:`) && about?.used ? `\n\nIts ${formatBytes(about.used)} of files will no longer appear in your pool.` : "";
-    if (!confirm(`Remove "${name}" from DriveMerge?\n\nNothing is deleted from the cloud.${held}`)) return;
+    const held = inPool.includes(`${name}:`) && about?.used ? ` Its ${formatBytes(about.used)} of files will no longer appear in your pool.` : "";
+    if (!(await ask({ title: `Remove ${name}?`, message: `Nothing is deleted from the cloud; DriveMerge just stops using this account.${held}`, confirm: "Remove account", danger: true }))) return;
     act(`remove ${name}`, async () => {
       await savePool(pool, toggleUpstream(pool?.upstreams, name, false));
       await rc("config/delete", { name });
     });
   }
 
-  function rename(name: string) {
-    const to = prompt("New account name", name)?.trim();
+  async function rename(name: string) {
+    const to = await askText({ title: `Rename ${name}`, label: "Account name", value: name, confirm: "Rename",
+      validate: (v) => (v === name ? "" : !NAME_RE.test(v) ? "Use letters, numbers, - and _ only." : taken.includes(v) || v === POOL ? "That name is taken." : "") });
     if (!to || to === name) return;
-    if (!NAME_RE.test(to)) return alert("Use letters, numbers, - and _ only.");
-    if (taken.includes(to) || to === POOL) return alert("That name is taken.");
     act(`rename ${name}`, () => renameAccount(pool, name, to));
   }
 
