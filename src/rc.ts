@@ -49,13 +49,17 @@ export async function ready() {
   }
 }
 
+// Last result of each useRc call, so revisiting a page shows it instantly while it refreshes.
+const lastResult = new Map<string, unknown>();
+
 export function useRc<T = any>(method: string, params: object = {}) {
-  const [state, set] = useState<{ data?: T; error?: string; loading: boolean }>({ loading: true });
   const key = method + JSON.stringify(params);
+  const [state, set] = useState<{ data?: T; error?: string; loading: boolean }>(() =>
+    lastResult.has(key) ? { data: lastResult.get(key) as T, loading: false } : { loading: true });
   const reload = useCallback(
     () =>
       rc<T>(method, params).then(
-        (data) => set({ data, loading: false }),
+        (data) => { lastResult.set(key, data); set({ data, loading: false }); },
         (e) => set({ error: e.message, loading: false }),
       ),
     [key], // eslint-disable-line react-hooks/exhaustive-deps

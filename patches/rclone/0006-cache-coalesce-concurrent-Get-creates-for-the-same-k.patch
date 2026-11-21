@@ -1,7 +1,7 @@
 From 555b252a7b76ff750d71cfe748ee88a60c63d938 Mon Sep 17 00:00:00 2001
 From: AshSgDe29071999 <AshSgDe29071999@users.noreply.github.com>
 Date: Tue, 25 Aug 2026 23:13:49 +0530
-Subject: [PATCH 6/9] cache: coalesce concurrent Get creates for the same key
+Subject: [PATCH 06/10] cache: coalesce concurrent Get creates for the same key
 
 Get unlocked around create, so a thundering herd of rclone rcd requests
 for the same remote all ran NewFs. Proton Drive construction is Argon2

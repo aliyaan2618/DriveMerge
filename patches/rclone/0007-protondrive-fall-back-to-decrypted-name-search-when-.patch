@@ -1,8 +1,8 @@
 From 001c9ee15a619d23f4bdcea4b8d3295e542345f6 Mon Sep 17 00:00:00 2001
 From: SillyZir <269283839+SillyZir@users.noreply.github.com>
 Date: Wed, 2 Sep 2026 10:19:21 -0400
-Subject: [PATCH 7/9] protondrive: fall back to decrypted-name search when the
- name-hash lookup misses
+Subject: [PATCH 07/10] protondrive: fall back to decrypted-name search when
+ the name-hash lookup misses
 
 Links created by newer Proton Drive clients carry a name hash in a
 different format, so the API-side search by legacy hash never matches

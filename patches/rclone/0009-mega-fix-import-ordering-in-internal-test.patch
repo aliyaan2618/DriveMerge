@@ -1,7 +1,7 @@
 From 3f86a3947328405cd23c0d7a5ef71f60d6aabf0e Mon Sep 17 00:00:00 2001
 From: xiao115255 <129280658+xiao115255@users.noreply.github.com>
 Date: Sat, 3 Oct 2026 22:46:48 +0800
-Subject: [PATCH 9/9] mega: fix import ordering in internal test
+Subject: [PATCH 09/10] mega: fix import ordering in internal test
 
 Sort the go-mega import into its correct position so goimports is happy
 and the lint job passes.

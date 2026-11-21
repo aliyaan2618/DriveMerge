@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { rc } from "./rc";
+import { notePause, pausedError } from "./accounts";
 import { SKIP_DIRS, merge, type Item } from "./lib";
 
 // Folder listings for the Files page, fetched per account so results (and progress) arrive as each
@@ -20,6 +21,8 @@ export async function loadListing(accounts: string[], path: string, onProgress?:
   const snapshot = (): Listing => ({ ...merge(accounts.flatMap((a) => done.filter(([d]) => d === a))), failed: { ...failed }, at: Date.now() });
   await Promise.all(accounts.map(async (a) => {
     const t0 = performance.now();
+    const paused = pausedError(`${a}:`);
+    if (paused) { failed[a] = paused; onProgress?.(snapshot(), a); return; }
     try {
       const { list } = await rc<{ list: Item[] }>("operations/list", { fs: `${a}:`, remote: path });
       // Hide folders that can't be opened (OneDrive's Personal Vault) from the top level.
@@ -27,7 +30,7 @@ export async function loadListing(accounts: string[], path: string, onProgress?:
     } catch (e) {
       // A folder that exists in only some accounts is normal for a pool: treat "not found" as empty.
       if (/not found/i.test((e as Error).message)) done.push([a, []]);
-      else failed[a] = (e as Error).message;
+      else { failed[a] = (e as Error).message; notePause(`${a}:`, failed[a]); }
     }
     lastDuration.set(a, performance.now() - t0);
     onProgress?.(snapshot(), a);

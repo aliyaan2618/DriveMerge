@@ -1,8 +1,8 @@
 From f10a71543cbaa38e3a9df1227e0c4d4161eb512a Mon Sep 17 00:00:00 2001
 From: "Josef H.B. Schneider" <git@netpage.dk>
 Date: Fri, 20 Nov 2026 11:37:17 +0100
-Subject: [PATCH 5/9] koofr: retry rate limited (429) and 503 requests using a
- pacer - fixes #10394
+Subject: [PATCH 05/10] koofr: retry rate limited (429) and 503 requests using
+ a pacer - fixes #10394
 
 Previously the koofr backend had no pacer or retry logic so a 429 Too
 Many Requests from the server failed the operation immediately, for

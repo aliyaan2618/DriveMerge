@@ -1,0 +1,67 @@
+From dd7f4aedbbe77045596481ab3a5cf774923b53a0 Mon Sep 17 00:00:00 2001
+From: aliyaan2618 <58987323+aliyaan2618@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 16:12:32 +0500
+Subject: [PATCH 10/10] koofr: don't retry when Koofr reports too many login
+ retries
+
+Koofr answers 429 "Too many login retries" once an account is locked
+after failed logins. Retrying that like a rate limit sent up to 10 more
+failed logins per request and kept the account locked.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ backend/koofr/koofr.go            |  5 +++++
+ backend/koofr/koofr_retry_test.go | 24 ++++++++++++++++++++++++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/backend/koofr/koofr.go b/backend/koofr/koofr.go
+index ed2218a12..379334b3f 100644
+--- a/backend/koofr/koofr.go
++++ b/backend/koofr/koofr.go
+@@ -463,6 +463,11 @@ func shouldRetry(ctx context.Context, err error) (bool, error) {
+ 	if fserrors.ContextError(ctx, &err) {
+ 		return false, err
+ 	}
++	// "Too many login retries" means Koofr has locked the account after failed
++	// logins; retrying only adds failed attempts and keeps the lock in place.
++	if ise, ok := httpclient.IsInvalidStatusError(err); ok && ise.Got == http.StatusTooManyRequests && strings.Contains(strings.ToLower(ise.Content), "login retries") {
++		return false, err
++	}
+ 	if ise, ok := httpclient.IsInvalidStatusError(err); ok && (ise.Got == http.StatusTooManyRequests || ise.Got == http.StatusServiceUnavailable) {
+ 		if after, parseErr := strconv.Atoi(ise.Headers.Get("Retry-After")); parseErr == nil && after > 0 {
+ 			return true, pacer.RetryAfterError(err, time.Duration(after)*time.Second)
+diff --git a/backend/koofr/koofr_retry_test.go b/backend/koofr/koofr_retry_test.go
+index bd04ce0f2..a0ab27ad0 100644
+--- a/backend/koofr/koofr_retry_test.go
++++ b/backend/koofr/koofr_retry_test.go
+@@ -53,3 +53,27 @@ func TestListRetriesTooManyRequests(t *testing.T) {
+ 	assert.Len(t, entries, 1)
+ 	assert.Equal(t, failures+1, listCalls.Load())
+ }
++
++// TestLoginLockoutIsNotRetried checks that Koofr's "Too many login retries"
++// lockout fails straight away instead of adding more login attempts.
++func TestLoginLockoutIsNotRetried(t *testing.T) {
++	ctx := context.Background()
++	var calls atomic.Int32
++
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		calls.Add(1)
++		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
++		w.WriteHeader(http.StatusTooManyRequests)
++		_, _ = w.Write([]byte("Too many login retries"))
++	}))
++	defer srv.Close()
++
++	_, err := NewFsFromOptions(ctx, "test", "", &Options{
++		Endpoint: srv.URL,
++		User:     "user",
++		Password: obscure.MustObscure("pass"),
++	})
++	require.Error(t, err)
++	assert.Contains(t, err.Error(), "Too many login retries")
++	assert.Equal(t, int32(1), calls.Load(), "a login lockout must not be retried")
++}
+-- 
+2.53.0.windows.3
+

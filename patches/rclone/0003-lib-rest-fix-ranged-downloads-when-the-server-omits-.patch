@@ -1,7 +1,7 @@
 From 55113ad8c4db2fb92680437b895d0533b1143164 Mon Sep 17 00:00:00 2001
 From: fixfon <12512757+fixfon@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 19:38:57 +0300
-Subject: [PATCH 3/9] lib/rest: fix ranged downloads when the server omits
+Subject: [PATCH 03/10] lib/rest: fix ranged downloads when the server omits
  Content-Range - fixes #10349
 
 Some WebDAV servers return HTTP 206 and Content-Length but no

@@ -50,12 +50,56 @@ export function useAccounts() {
   return { accounts, pool: data?.[POOL], error, reload, loading };
 }
 
+export type Space = About & { error?: string };
+
+// Storage space per remote, shared by every page. Fresh results are reused for a minute; errors that
+// mean "stop asking" (rejected sign-in, lock-outs, rate limits) pause that account for 10 minutes so
+// DriveMerge doesn't keep sending failed logins.
+const spaceCache = new Map<string, { value: Space; at: number }>();
+const inflight = new Map<string, Promise<Space>>();
+const FRESH_MS = 60_000;
+const PAUSE_MS = 10 * 60_000;
+export const shouldPause = (error = "") => needsSignIn(error) || /429|too many|login retries|rate.?limit|captcha|human verification/i.test(error);
+export const cachedSpace = (fs: string) => spaceCache.get(fs)?.value;
+
+/** The error an account is paused for, if it's still paused. */
+export function pausedError(fs: string) {
+  const c = spaceCache.get(fs);
+  return c?.value.error && shouldPause(c.value.error) && Date.now() - c.at < PAUSE_MS ? c.value.error : undefined;
+}
+/** Records a failure seen elsewhere (e.g. listing) so the account is paused too. */
+export function notePause(fs: string, error: string) {
+  if (shouldPause(error)) spaceCache.set(fs, { value: { error }, at: Date.now() });
+}
+/** Forgets cached space (and any pause) for a remote name, or everything. */
+export function forgetSpace(name?: string) {
+  for (const k of [...spaceCache.keys()]) if (!name || k === `${name}:`) spaceCache.delete(k);
+}
+
+export function getSpace(fs: string): Promise<Space> {
+  const c = spaceCache.get(fs);
+  const maxAge = c?.value.error ? (shouldPause(c.value.error) ? PAUSE_MS : 0) : FRESH_MS;
+  if (c && Date.now() - c.at < maxAge) return Promise.resolve(c.value);
+  let p = inflight.get(fs);
+  if (!p) {
+    p = rc<About>("operations/about", { fs }).then((v): Space => v, (e): Space => ({ error: e.message })).then((v) => {
+      spaceCache.set(fs, { value: v, at: Date.now() });
+      inflight.delete(fs);
+      return v;
+    });
+    inflight.set(fs, p);
+  }
+  return p;
+}
+
 /** `version` re-fetches when it changes, e.g. the pool's upstreams. */
 export function useAbout(fs: string | undefined, version?: string) {
-  const [about, setAbout] = useState<About & { error?: string }>();
+  const [about, setAbout] = useState<Space | undefined>(() => (fs ? cachedSpace(fs) : undefined));
   useEffect(() => {
     if (!fs) return;
-    rc<About>("operations/about", { fs }).then(setAbout, (e) => setAbout({ error: e.message }));
+    let live = true;
+    getSpace(fs).then((v) => live && setAbout(v));
+    return () => { live = false; };
   }, [fs, version]);
   return about;
 }
@@ -64,6 +108,8 @@ export function useAbout(fs: string | undefined, version?: string) {
 export function spaceProblem(error: string, service: string): { label: string; explain: string; soft?: boolean } {
   if (/not supported|doesn't support|can't get usage|unsupported/i.test(error))
     return { label: "Space not reported", soft: true, explain: `${service} doesn't tell other apps how much space is used or free. Your files still work; the account just doesn't count towards the pool's totals.` };
+  if (/login retries|too many login/i.test(error))
+    return { label: "Sign-in blocked", explain: `${service} has temporarily blocked sign-ins to this account after several failed attempts. That usually means the password was wrong${service === "Koofr" ? " (Koofr needs an app password from Koofr → Preferences → Password, not your normal password)" : ""}. DriveMerge has paused this account for 10 minutes so it doesn't add more failed attempts. Wait a while, then remove the account and add it again with the right password.` };
   if (/refusing to follow HTTPS to HTTP redirect/i.test(error))
     return { label: "Not working right now", explain: `${service} changed how its servers answer, and the current rclone (the engine DriveMerge uses) can't follow it safely: it would have to send your sign-in over an unencrypted connection, which DriveMerge won't do. This needs a fix in rclone; it should work again after an update. Your account and files are fine.` };
   if (/human verification|captcha|9001|\b422\b/i.test(error))
@@ -106,6 +152,7 @@ export function Usage({ fs, type = "" }: { fs: string; type?: string }) {
 /** Creates, updates or removes the union remote so it matches the given upstreams. */
 export async function savePool(pool: Record<string, string> | undefined, upstreams: string, policy?: string) {
   await writePool(pool, upstreams, policy);
+  forgetSpace(POOL);
   // rclone caches the pool's file system; without this it keeps serving the old set of accounts.
   await rc("fscache/clear");
 }
@@ -185,12 +232,14 @@ export async function createAccount(name: string, type: string, parameters: Reco
 
 /** Signs in again, keeping the account's name and settings. */
 export async function reconnectAccount(name: string) {
+  forgetSpace(name);
   await answerQuestions(name, await rc<OutState>("config/update", { name, parameters: {}, opt: SETUP_OPT }));
   await rc("fscache/clear");
 }
 
 /** rclone has no rename: copy the saved settings (sign-in token included) to the new name, then remove the old one. */
 export async function renameAccount(pool: Record<string, string> | undefined, from: string, to: string) {
+  forgetSpace(from);
   const { type, ...parameters } = await rc<Record<string, string>>("config/get", { name: from });
   // nonInteractive returns the first setup question without running it; the settings are already saved by then.
   await rc("config/create", { name: to, type, parameters, opt: { nonInteractive: true, noObscure: true } });

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Cloud, Database, HardDrive, Plus, RefreshCw } from "../icons";
 import type { PageProps } from "../App";
-import { Badge, SpaceError, providerName, useAccounts, type About } from "../accounts";
+import { Badge, SpaceError, cachedSpace, getSpace, providerName, useAccounts, type Space } from "../accounts";
 import { FREE_TIERS, exactBytes, formatBytes, upstreams } from "../lib";
 import { useJobs } from "../jobs";
-import { rc, useRc } from "../rc";
+import { useRc } from "../rc";
 import { PageHeader, Stat } from "../ui";
 import { addAccount } from "./Accounts";
 import { prefetch } from "../listing";
@@ -12,15 +12,17 @@ import { prefetch } from "../listing";
 // Segment colours for accounts in the storage bar (distinct, readable in light and dark).
 const SEG = ["#5b5bf0", "#f97316", "#14b8a6", "#ec4899", "#eab308", "#0ea5e9", "#84cc16", "#8b5cf6"];
 
-type Space = About & { error?: string };
 
 /** Used/total space of each account, fetched in parallel. */
 function useSpace(names: string[]) {
-  const [space, setSpace] = useState<Record<string, Space>>({});
+  const cached = () => Object.fromEntries(names.flatMap((n) => { const c = cachedSpace(`${n}:`); return c ? [[n, c]] : []; }));
+  const [space, setSpace] = useState<Record<string, Space>>(cached);
   const key = names.join(" ");
   useEffect(() => {
-    Promise.all(names.map((n) => rc<About>("operations/about", { fs: `${n}:` }).then((a): [string, Space] => [n, a], (e): [string, Space] => [n, { error: e.message }])))
-      .then((all) => setSpace(Object.fromEntries(all)));
+    let live = true;
+    // Each account fills in as it answers; cached ones show right away.
+    for (const n of names) getSpace(`${n}:`).then((v) => live && setSpace((s) => ({ ...s, [n]: v })));
+    return () => { live = false; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   return space;
 }
