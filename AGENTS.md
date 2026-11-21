@@ -101,6 +101,8 @@ Use `alias` remotes pointing at local folders as fake accounts. Desktop-only fea
 - Two-way sync (`bisync`) needs both folders to exist and a `--resync` on its first successful run.
 - The engine listens on a random localhost port with a random password per launch and only allows the app's origin (`http://localhost:1420` in dev, `http://tauri.localhost` in release).
 - The app version lives only in `package.json`; `tauri.conf.json` reads it.
+- Browser sign-in in the desktop app answers rclone's `config_is_local` with false, then runs `rclone authorize <args from config_token's help> --template auth.html` (Rust `authorize` command), so the browser shows `auth.html` (a Go template using .OK/.Name/.Description) and the app is shown again when it returns. The browser preview keeps rclone's own flow.
+- Dialogs: use `ask` / `askText` / `tell` from `src/dialogs.tsx`, never window.confirm/prompt/alert.
 - Task Scheduler XML comes from `taskXml()` in `src/lib.ts` (unit-tested); `src/tasks.ts` keeps tasks in step on every jobs save.
 - Streaming: `src/stream.ts` starts `serve/start type=http` read-only on 127.0.0.1 with a random `baseurl` token; restart it when the pool changes.
 - `drivemerge-run.ps1` runs under Windows PowerShell 5.1: read JSON via `Read-Jobs` (5.1 wraps arrays) and write without a BOM.

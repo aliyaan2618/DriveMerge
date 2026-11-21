@@ -67,3 +67,11 @@ test("taskXml builds a Task Scheduler definition per repeat type", async () => {
   assert.match(taskXml({ ...base, schedule: { repeat: "monthly", time: "08:00", day: 15 } }, "s.ps1", today), /<Day>15<\/Day>.*<December \/>/s);
   assert.match(taskXml({ ...base, schedule: { repeat: "once", time: "10:00", date: "2026-12-01" } }, "s.ps1", today), /<TimeTrigger><StartBoundary>2026-12-01T10:00:00/);
 });
+
+test("authorizeArgs reads rclone's authorize command", async () => {
+  const { authorizeArgs } = await import("./lib.ts");
+  assert.deepEqual(authorizeArgs('Execute the following:\n\n\trclone authorize "drive"\n\nThen paste the result.'), ["drive"]);
+  assert.deepEqual(authorizeArgs('\trclone authorize "onedrive" "abc-id" "s3cret"\n'), ["onedrive", "abc-id", "s3cret"]);
+  assert.deepEqual(authorizeArgs('\trclone authorize "drive" "eyJzY29wZSI6ImRyaXZlIn0"\n'), ["drive", "eyJzY29wZSI6ImRyaXZlIn0"]);
+  assert.deepEqual(authorizeArgs("no command here"), []);
+});

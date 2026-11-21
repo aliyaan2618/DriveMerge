@@ -1,6 +1,7 @@
 use rand::{distr::Alphanumeric, Rng};
 use serde::Serialize;
-use std::{net::TcpListener, path::PathBuf, process::{Child, Command}, sync::Mutex};
+use std::{io::{BufRead, BufReader, Read}, net::TcpListener, path::PathBuf, process::{Child, Command, Stdio}, sync::Mutex};
+use tauri_plugin_opener::OpenerExt;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
@@ -158,6 +159,69 @@ fn start_rclone(app: &tauri::AppHandle) -> Result<Rclone, Box<dyn std::error::Er
     })
 }
 
+/// Browser sign-in (OAuth) run through `rclone authorize`, so the browser shows DriveMerge's own
+/// success page (auth.html) and the app can come back to the front when it's done.
+#[derive(Default)]
+struct Auth {
+    child: Mutex<Option<Child>>,
+    url: Mutex<Option<String>>,
+}
+
+#[tauri::command]
+async fn authorize(app: tauri::AppHandle, args: Vec<String>) -> Result<String, String> {
+    // args come from rclone's own setup question: backend name, then optional client id/secret or settings blob.
+    match args.first() {
+        Some(b) if !b.is_empty() && b.chars().all(|c| c.is_ascii_alphanumeric()) => {}
+        _ => return Err("Unknown service".into()),
+    }
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?.with_file_name(if cfg!(windows) { "rclone.exe" } else { "rclone" });
+    let template = app.path().resource_dir().map_err(|e| e.to_string())?.join("auth.html");
+    let mut cmd = Command::new(exe);
+    cmd.arg("authorize").args(&args).arg("--auth-no-open-browser").arg("--template").arg(template)
+        .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000); // CREATE_NO_WINDOW
+    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    let (stdout, stderr) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
+    *app.state::<Auth>().child.lock().unwrap() = Some(child);
+
+    // rclone prints the sign-in link on stderr: open it in the default browser and keep it for "Browser didn't open?".
+    let a = app.clone();
+    std::thread::spawn(move || {
+        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+            if let Some(i) = line.find("following link: ") {
+                let url = line[i + "following link: ".len()..].trim().to_string();
+                let _ = a.opener().open_url(&url, None::<&str>);
+                *a.state::<Auth>().url.lock().unwrap() = Some(url);
+            }
+        }
+    });
+
+    // After the user clicks Allow, rclone prints the token between these markers and exits.
+    let out = tauri::async_runtime::spawn_blocking(move || {
+        let mut s = String::new();
+        let _ = BufReader::new(stdout).read_to_string(&mut s);
+        s
+    }).await.map_err(|e| e.to_string())?;
+    if let Some(mut c) = app.state::<Auth>().child.lock().unwrap().take() { let _ = c.wait(); }
+    *app.state::<Auth>().url.lock().unwrap() = None;
+    show_main(&app);
+    match (out.find("--->"), out.find("<---End paste")) {
+        (Some(s), Some(e)) if s < e => Ok(out[s + 4..e].trim().to_string()),
+        _ => Err("Sign-in was cancelled or didn't finish.".into()),
+    }
+}
+
+#[tauri::command]
+fn cancel_authorize(state: tauri::State<Auth>) {
+    if let Some(mut c) = state.child.lock().unwrap().take() { let _ = c.kill(); }
+}
+
+#[tauri::command]
+fn authorize_url(state: tauri::State<Auth>) -> Option<String> {
+    state.url.lock().unwrap().clone()
+}
+
 fn show_main(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -169,6 +233,7 @@ fn show_main(app: &tauri::AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(Auth::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
@@ -215,7 +280,7 @@ pub fn run() {
                 let _ = window.hide();
             }
         })
-        .invoke_handler(tauri::generate_handler![rc_info, stop_engine, set_tray_status, register_task, delete_task, load_jobs, save_jobs, export_jobs, import_jobs])
+        .invoke_handler(tauri::generate_handler![rc_info, stop_engine, authorize, cancel_authorize, authorize_url, set_tray_status, register_task, delete_task, load_jobs, save_jobs, export_jobs, import_jobs])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {

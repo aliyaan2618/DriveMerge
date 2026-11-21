@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Server } from "./icons";
 import { siBox, siDropbox, siFilen, siGoogledrive, siMega, siProtondrive, type SimpleIcon } from "simple-icons";
-import { rc, useRc } from "./rc";
-import { POOL, formatBytes, toggleUpstream, upstreams as upstreamList } from "./lib";
+import { inTauri, rc, useRc } from "./rc";
+import { invoke } from "@tauri-apps/api/core";
+import { POOL, formatBytes, toggleUpstream, upstreams as upstreamList, authorizeArgs } from "./lib";
 
 export type Config = Record<string, Record<string, string>>;
 export type About = { total?: number; used?: number; free?: number };
@@ -87,7 +88,7 @@ async function writePool(pool: Record<string, string> | undefined, upstreams: st
 export const setInPool = (pool: Record<string, string> | undefined, name: string, on: boolean) =>
   savePool(pool, toggleUpstream(pool?.upstreams, name, on));
 
-type Option = { Name: string; Default: unknown; Examples?: { Value: string }[] };
+type Option = { Name: string; Help?: string; Default: unknown; Examples?: { Value: string }[] };
 type OutState = { State?: string; Option?: Option; Error?: string };
 const SETUP_OPT = { nonInteractive: true, obscure: true };
 
@@ -97,8 +98,17 @@ async function answerQuestions(name: string, out: OutState) {
     if (out.Error) throw new Error(out.Error);
     const o = out.Option;
     // shortcut: rclone's shared Google client_id is being retired in 2026; we accept it when the user gave no client_id. Ship our own client_id before release.
-    const yes = o?.Name === "config_is_local" || o?.Name === "config_shared_client_id";
-    const result = yes ? "true" : String(o?.Default ?? o?.Examples?.[0]?.Value ?? "");
+    let result: string;
+    if (o?.Name === "config_is_local") {
+      // In the desktop app, sign in through `rclone authorize` (DriveMerge's success page, app comes back to front).
+      result = inTauri ? "false" : "true";
+    } else if (o?.Name === "config_token") {
+      result = await invoke<string>("authorize", { args: authorizeArgs(o.Help ?? "") });
+    } else if (o?.Name === "config_shared_client_id") {
+      result = "true";
+    } else {
+      result = String(o?.Default ?? o?.Examples?.[0]?.Value ?? "");
+    }
     out = await rc<OutState>("config/update", { name, parameters: {}, opt: { ...SETUP_OPT, continue: true, state: out.State, result } });
   }
   if (out.Error) throw new Error(out.Error);

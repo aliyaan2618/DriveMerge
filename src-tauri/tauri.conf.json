@@ -34,7 +34,8 @@
     "resources": {
       "../THIRD-PARTY-LICENSES.md": "THIRD-PARTY-LICENSES.md",
       "../cli/drivemerge.cmd": "drivemerge.cmd",
-      "../cli/drivemerge-run.ps1": "drivemerge-run.ps1"
+      "../cli/drivemerge-run.ps1": "drivemerge-run.ps1",
+      "../auth.html": "auth.html"
     },
     "icon": [
       "icons/32x32.png",

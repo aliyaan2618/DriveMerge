@@ -113,7 +113,6 @@ export const FREE_TIERS: { type: string; gb: number; note?: string }[] = [
   { type: "box", gb: 10, note: "Files up to 250 MB each" },
   { type: "pcloud", gb: 10, note: "Full 10 GB after a short setup checklist" },
   { type: "koofr", gb: 10 },
-  { type: "filen", gb: 10 },
   { type: "onedrive", gb: 5 },
   { type: "jottacloud", gb: 5 },
   { type: "protondrive", gb: 5, note: "Starts at 2 GB; 5 GB after setup tasks" },
@@ -152,4 +151,10 @@ export function taskXml(job: SyncJob, script: string, today: Date): string {
   </Settings>
   <Actions Context="Author"><Exec><Command>powershell.exe</Command><Arguments>${xml(`-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "${script}" run ${job.id} --scheduled`)}</Arguments></Exec></Actions>
 </Task>`;
+}
+
+/** Arguments for `rclone authorize`, taken from rclone's config_token question ("rclone authorize "drive" "id" "secret""). */
+export function authorizeArgs(help: string): string[] {
+  const cmd = /rclone authorize((?:\s+"[^"]*")+)/.exec(help)?.[1] ?? "";
+  return [...cmd.matchAll(/"([^"]*)"/g)].map((m) => m[1]);
 }

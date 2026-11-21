@@ -71,6 +71,12 @@ DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 - [x] Command line `drivemerge` (saved jobs by name, dry run, any rclone command), bundled with the app
 - [x] Sync runs moved to a shared runner, so scheduled runs work from the tray with no window open
 
+### Sign-in polish, 21 November 2026
+- [x] Browser sign-in (Google Drive, OneDrive, Dropbox, Box, pCloud, Jottacloud) shows a DriveMerge "You're signed in" page and brings DriveMerge back to the front
+- [x] Password sign-in (MEGA, Proton Drive, Koofr, Filen): clear labels, 2FA code up front, why there's no browser sign-in, where the password goes; Koofr shows one app-password box; Filen explains its API key
+- [x] In-app dialogs replace Windows message boxes
+- [x] Filen removed from the Dashboard's free-storage list (needs an API key from its CLI); still available under all services
+
 ### Bugs fixed during testing
 - [x] A pool with only one account broke (rclone's union refuses one member). It now becomes a simple link to that account.
 - [x] After the pool changed, rclone kept showing the old file list from its cache. The cache now clears on every change.

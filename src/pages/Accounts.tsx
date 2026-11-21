@@ -2,17 +2,47 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Cloud, Database, Layers, Loader2, Pencil, Plus, RotateCw, Search, Trash2 } from "../icons";
 import { PageHeader, Stat } from "../ui";
 import { ask, askText, tell } from "../dialogs";
-import { rc } from "../rc";
+import { inTauri, rc } from "../rc";
+import { invoke } from "@tauri-apps/api/core";
 import type { PageProps } from "../App";
 import { Badge, Usage, createAccount, providerName, reconnectAccount, renameAccount, savePool, setInPool, useAbout, useAccounts, type About } from "../accounts";
 import { NAME_RE, POLICIES, POOL, formatBytes, toggleUpstream, upstreams } from "../lib";
 
-type Option = { Name: string; Help: string; Required: boolean; Advanced: boolean; Hide: number; IsPassword: boolean; Default: unknown };
+type Option = { Name: string; Help: string; Required: boolean; Advanced: boolean; Hide: number; IsPassword: boolean; Default: unknown; Provider?: string; Examples?: { Value: string; Help: string }[] };
 type Provider = { Name: string; Description: string; Options: Option[] };
 
 // Wrapper and local-only backends: not cloud accounts.
 const HIDDEN = new Set(["alias", "cache", "chunker", "combine", "compress", "crypt", "hasher", "union", "local", "memory", "tardigrade", "uptobox", "archive"]);
 const POPULAR = ["drive", "onedrive", "dropbox", "mega", "box", "pcloud", "sftp", "webdav"];
+
+// Friendly labels for rclone's option names (per service where they differ).
+const LABELS: Record<string, string> = {
+  user: "Email", username: "Email or username", email: "Email", pass: "Password", password: "Password",
+  "2fa": "2FA code", api_key: "API key", host: "Server", port: "Port", url: "Server URL", endpoint: "Server address", provider: "Service",
+};
+const LABELS_BY_TYPE: Record<string, Record<string, string>> = {
+  koofr: { password: "App password" }, sftp: { user: "Username" }, ftp: { user: "Username" }, webdav: { user: "Username" }, smb: { user: "Username" },
+};
+const HINTS: Record<string, string> = { "2fa": "Only if two-step verification is on. Enter the current 6-digit code." };
+// Optional fields worth showing up front instead of under "More options".
+const PROMOTE = new Set(["2fa"]);
+
+/** Why this service asks for a password here, and anything special it needs. */
+function SignInNote({ type }: { type: string }) {
+  const link = (url: string, text: string) => (
+    <a href={url} onClick={(e) => { e.preventDefault(); import("@tauri-apps/plugin-opener").then((o) => o.openUrl(url)).catch(() => window.open(url)); }}>{text}</a>
+  );
+  switch (type) {
+    case "mega": return <p className="banner small">MEGA doesn't offer browser sign-in to other apps (your password also unlocks your encrypted files), so enter your MEGA email and password here.</p>;
+    case "protondrive": return <p className="banner small">Proton doesn't offer browser sign-in to other apps (your password also unlocks your encrypted files), so enter your Proton email and password here.</p>;
+    case "koofr": return <p className="banner small">Koofr needs an <strong>app password</strong>, not your normal one. Create it at {link("https://app.koofr.net/app/admin/preferences/password", "Koofr → Preferences → Password")}, then paste it below.</p>;
+    case "filen": return <p className="banner small">Filen needs an <strong>API key</strong>: install the {link("https://github.com/FilenCloudDienste/filen-cli", "Filen CLI")}, sign in with it, run <code>filen export-api-key</code> and paste the key below.</p>;
+    default: return null;
+  }
+}
+
+/** rclone marks some options as belonging to certain sub-services ("koofr", "!other", "a,b"). */
+const appliesTo = (o: Option, provider: string) => !o.Provider || o.Provider.split(",").some((x) => (x.startsWith("!") ? x.slice(1) !== provider : x === provider));
 
 export default function Accounts({ addProvider }: PageProps) {
   const { accounts, pool, reload, error } = useAccounts();
@@ -146,7 +176,10 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
   // While waiting for sign-in, show the link in case the browser didn't open.
   useEffect(() => {
     if (!status.busy) return setAuthUrl("");
-    const t = setInterval(() => rc<{ status: string; authUrl?: string }>("config/oauthstatus").then((s) => setAuthUrl(s.authUrl ?? ""), () => {}), 2000);
+    const poll = () => inTauri
+      ? invoke<string | null>("authorize_url").then((u) => setAuthUrl(u ?? ""), () => {})
+      : rc<{ status: string; authUrl?: string }>("config/oauthstatus").then((s) => setAuthUrl(s.authUrl ?? ""), () => {});
+    const t = setInterval(poll, 2000);
     return () => clearInterval(t);
   }, [status.busy]);
 
@@ -187,10 +220,13 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
     );
   }
 
-  const opts = p.Options.filter((o) => !o.Advanced && !o.Hide);
-  const required = opts.filter((o) => o.Required);
-  const optional = opts.filter((o) => !o.Required);
+  const providerOpt = p.Options.find((o) => o.Name === "provider" && o.Examples?.length);
+  const provider = values.provider ?? providerOpt?.Examples?.[0]?.Value ?? "";
+  const opts = p.Options.filter((o) => !o.Advanced && !o.Hide && o.Name !== "provider" && appliesTo(o, provider));
+  const required = opts.filter((o) => o.Required || PROMOTE.has(o.Name));
+  const optional = opts.filter((o) => !o.Required && !PROMOTE.has(o.Name));
   const oauth = p.Options.some((o) => o.Name === "token");
+  const hasPassword = opts.some((o) => o.IsPassword);
   const nameError = !NAME_RE.test(name) ? "Use letters, numbers, - and _ only." : taken.includes(name) || name === POOL ? "That name is taken." : "";
 
   async function submit(e: React.FormEvent) {
@@ -198,7 +234,9 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
     if (nameError) return;
     setStatus({ busy: true });
     try {
-      await createAccount(name, p!.Name, Object.fromEntries(Object.entries(values).filter(([, v]) => v !== "")));
+      const params = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== ""));
+      if (providerOpt) params.provider = provider;
+      await createAccount(name, p!.Name, params);
       await onDone(name);
     } catch (err) {
       await rc("config/delete", { name }).catch(() => {});
@@ -212,16 +250,19 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
 
   function cancel() {
     // Stops rclone's sign-in server so the pending request returns and the half-made account is removed.
-    if (status.busy) rc("config/oauthstop").catch(() => {});
+    if (status.busy) (inTauri ? invoke("cancel_authorize") : rc("config/oauthstop")).catch(() => {});
     else onCancel();
   }
 
+  const label = (n: string) => LABELS_BY_TYPE[p.Name]?.[n] ?? LABELS[n] ?? n.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
   const field = (o: Option) => (
     <label className="field" key={o.Name}>
-      <span>{o.Name.replace(/_/g, " ")}{o.Required ? " *" : ""}</span>
+      <span>{label(o.Name)}{o.Required ? " *" : ""}</span>
       <input type={o.IsPassword ? "password" : "text"} required={o.Required} value={values[o.Name] ?? ""}
+        autoComplete={o.IsPassword ? "current-password" : o.Name === "2fa" ? "one-time-code" : undefined}
+        inputMode={o.Name === "2fa" ? "numeric" : undefined}
         placeholder={o.Default ? String(o.Default) : ""} onChange={(e) => setValues({ ...values, [o.Name]: e.target.value })} />
-      <small className="muted small">{o.Help.split("\n")[0]}</small>
+      {(HINTS[o.Name] || !LABELS[o.Name]) && <small className="muted small">{HINTS[o.Name] ?? o.Help.split("\n")[0]}</small>}
     </label>
   );
 
@@ -237,8 +278,18 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
         <input value={name} onChange={(e) => setName(e.target.value)} aria-invalid={!!nameError} disabled={status.busy} />
         {nameError && <small className="error small">{nameError}</small>}
       </label>
+      <SignInNote type={p.Name} />
+      {providerOpt && (providerOpt.Examples?.length ?? 0) > 1 && (
+        <label className="field">
+          <span>{label("provider")}</span>
+          <select value={provider} onChange={(e) => setValues({ ...values, provider: e.target.value })}>
+            {providerOpt.Examples!.map((x) => <option key={x.Value} value={x.Value}>{x.Help.split("\n")[0] || x.Value}</option>)}
+          </select>
+        </label>
+      )}
       {required.map(field)}
-      {oauth && <p className="banner small">A browser window will open so you can sign in. DriveMerge never sees your password.</p>}
+      {oauth && <p className="banner small">Your browser opens {providerName(p.Name)}'s own sign-in page. Sign in there and click Allow; DriveMerge comes back to the front when you're done. DriveMerge never sees your password.</p>}
+      {!oauth && hasPassword && <p className="small muted">Your password is stored scrambled on this PC and only sent to {providerName(p.Name)}.</p>}
       {authUrl && <p className="small muted">Browser didn't open? <a href={authUrl} onClick={(e) => { e.preventDefault(); import("@tauri-apps/plugin-opener").then((o) => o.openUrl(authUrl)); }}>Open the sign-in page</a></p>}
       {!!optional.length && (
         <details>
