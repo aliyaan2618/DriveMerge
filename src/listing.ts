@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { rc } from "./rc";
-import { merge, type Item } from "./lib";
+import { SKIP_DIRS, merge, type Item } from "./lib";
 
 // Folder listings for the Files page, fetched per account so results (and progress) arrive as each
 // account answers, and cached in memory so a folder you've opened shows instantly next time.
@@ -21,7 +21,9 @@ export async function loadListing(accounts: string[], path: string, onProgress?:
   await Promise.all(accounts.map(async (a) => {
     const t0 = performance.now();
     try {
-      done.push([a, (await rc<{ list: Item[] }>("operations/list", { fs: `${a}:`, remote: path })).list]);
+      const { list } = await rc<{ list: Item[] }>("operations/list", { fs: `${a}:`, remote: path });
+      // Hide folders that can't be opened (OneDrive's Personal Vault) from the top level.
+      done.push([a, path ? list : list.filter((i) => !(i.IsDir && SKIP_DIRS.includes(i.Name)))]);
     } catch (e) {
       // A folder that exists in only some accounts is normal for a pool: treat "not found" as empty.
       if (/not found/i.test((e as Error).message)) done.push([a, []]);

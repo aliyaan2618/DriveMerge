@@ -1,7 +1,7 @@
 From 7d2213ce53ea67c55585d49decc2f237f2df4f40 Mon Sep 17 00:00:00 2001
 From: fixfon <12512757+fixfon@users.noreply.github.com>
 Date: Tue, 17 Nov 2026 11:33:50 +0300
-Subject: [PATCH 4/5] lib/rest: don't check the range if the server omits
+Subject: [PATCH 4/9] lib/rest: don't check the range if the server omits
  Content-Range - fixes #10349
 
 A 206 response without Content-Range is not RFC 9110 compliant, so

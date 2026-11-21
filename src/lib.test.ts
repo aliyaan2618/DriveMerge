@@ -26,7 +26,7 @@ test("account names are restricted to safe characters", () => {
 const job: SyncJob = { id: "1", name: "x", src: "C:/Photos", dst: "pool:Photos", mode: "mirror", include: "", exclude: "*.tmp\n\n", minSize: "", maxSize: "10M", maxAge: "", lastRun: undefined };
 
 test("syncRequest maps modes and filters", () => {
-  assert.deepEqual(syncRequest(job), ["sync/sync", { srcFs: "C:/Photos", dstFs: "pool:Photos", _async: true, _filter: { ExcludeRule: ["*.tmp"], MaxSize: "10M" }, _config: { DryRun: false } }]);
+  assert.deepEqual(syncRequest(job), ["sync/sync", { srcFs: "C:/Photos", dstFs: "pool:Photos", _async: true, _filter: { ExcludeRule: ["*.tmp", "/Personal Vault/**"], MaxSize: "10M" }, _config: { DryRun: false } }]);
   assert.deepEqual(syncRequest(job, true)[1]._config, { DryRun: true });
   assert.deepEqual(syncRequest({ ...job, mode: "update" })[1]._config, { UpdateOlder: true, DryRun: false });
   assert.equal(syncRequest({ ...job, mode: "twoway" }, true)[1].dryRun, true);

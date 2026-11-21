@@ -82,6 +82,7 @@ DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 - [x] Confirmed with a real Proton account (21 November 2026); Proton Drive is back on the free-storage list
 - [ ] Send the fix to rclone upstream so the patch can be dropped (later: see TODO.md)
 - [x] Also patched (pending upstream fixes): pool overwrite updating only one account (rclone#10364), WebDAV ranged downloads in 1.76.0 (#10349), Koofr 429 retries (#10394). Drime hidden until its move bug (#10370) is fixed. See patches/rclone/README.md
+- [x] More rclone patches: shared login for simultaneous requests (#9816), Proton files from its new apps (#9622), MEGA expired sessions (#10006). DriveMerge also warns on Mirror with filters (#8405) and skips OneDrive Personal Vault (#8736). Remaining rclone issues are in TODO.md
 
 ### Bugs fixed during testing
 - [x] A pool with only one account broke (rclone's union refuses one member). It now becomes a simple link to that account.

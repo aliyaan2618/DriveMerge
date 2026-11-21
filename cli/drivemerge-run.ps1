@@ -36,6 +36,8 @@ $dryRun = $extra -contains "--dry-run"
 $flags = @()
 foreach ($p in ($job.include -split "`n")) { if ($p.Trim()) { $flags += "--include", $p.Trim() } }
 foreach ($p in ($job.exclude -split "`n")) { if ($p.Trim()) { $flags += "--exclude", $p.Trim() } }
+# Same as SKIP_RULES in src/lib.ts: OneDrive's Personal Vault is locked to other apps.
+$flags += "--exclude", "/Personal Vault/**"
 if ($job.minSize.Trim()) { $flags += "--min-size", $job.minSize.Trim() }
 if ($job.maxSize.Trim()) { $flags += "--max-size", $job.maxSize.Trim() }
 if ($job.maxAge.Trim()) { $flags += "--max-age", $job.maxAge.Trim() }

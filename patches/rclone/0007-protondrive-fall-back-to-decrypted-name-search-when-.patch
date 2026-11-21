@@ -1,0 +1,99 @@
+From 001c9ee15a619d23f4bdcea4b8d3295e542345f6 Mon Sep 17 00:00:00 2001
+From: SillyZir <269283839+SillyZir@users.noreply.github.com>
+Date: Wed, 2 Sep 2026 10:19:21 -0400
+Subject: [PATCH 7/9] protondrive: fall back to decrypted-name search when the
+ name-hash lookup misses
+
+Links created by newer Proton Drive clients carry a name hash in a
+different format, so the API-side search by legacy hash never matches
+and rclone reports files that exist as not found. When the hash search
+returns nothing, list the folder and compare the decrypted names.
+
+See #9622
+
+(cherry picked from commit 868b105143a9b3b1f0fefc41c6d151f17d5b1c2b)
+---
+ backend/protondrive/protondrive.go | 53 +++++++++++++++++++++++-------
+ 1 file changed, 42 insertions(+), 11 deletions(-)
+
+diff --git a/backend/protondrive/protondrive.go b/backend/protondrive/protondrive.go
+index e263ff469..44fb45133 100644
+--- a/backend/protondrive/protondrive.go
++++ b/backend/protondrive/protondrive.go
+@@ -691,6 +691,44 @@ func (f *Fs) NewObject(ctx context.Context, remote string) (fs.Object, error) {
+ 	return f.newObject(ctx, remote)
+ }
+ 
++// searchByNameInFolderByID looks for a file or folder named leaf in the
++// folder with ID folderLinkID, returning nil if it can't be found.
++//
++// The API-side search matches children by their legacy name hash, but
++// links written by newer Proton clients carry a hash in a different
++// format which never matches. When the hash search finds nothing, fall
++// back to listing the folder and comparing the decrypted names.
++func (f *Fs) searchByNameInFolderByID(ctx context.Context, folderLinkID, leaf string, searchFile, searchFolder bool) (*proton.Link, error) {
++	var link *proton.Link
++	var err error
++	if err = f.pacer.Call(func() (bool, error) {
++		link, err = f.protonDrive.SearchByNameInActiveFolderByID(ctx, folderLinkID, leaf, searchFile, searchFolder, proton.LinkStateActive)
++		return shouldRetry(ctx, err)
++	}); err != nil {
++		return nil, err
++	}
++	if link != nil {
++		return link, nil
++	}
++
++	var foldersAndFiles []*protonDriveAPI.ProtonDirectoryData
++	if err = f.pacer.Call(func() (bool, error) {
++		foldersAndFiles, err = f.protonDrive.ListDirectory(ctx, folderLinkID)
++		return shouldRetry(ctx, err)
++	}); err != nil {
++		return nil, err
++	}
++	for _, entry := range foldersAndFiles {
++		if entry.Name != leaf {
++			continue
++		}
++		if (entry.IsFolder && searchFolder) || (!entry.IsFolder && searchFile) {
++			return entry.Link, nil
++		}
++	}
++	return nil, nil
++}
++
+ func (f *Fs) getObjectLink(ctx context.Context, remote string) (*proton.Link, error) {
+ 	// attempt to locate the file
+ 	leaf, folderLinkID, err := f.dirCache.FindPath(ctx, f.sanitizePath(remote), false)
+@@ -703,11 +741,8 @@ func (f *Fs) getObjectLink(ctx context.Context, remote string) (*proton.Link, er
+ 		return nil, err
+ 	}
+ 
+-	var link *proton.Link
+-	if err = f.pacer.Call(func() (bool, error) {
+-		link, err = f.protonDrive.SearchByNameInActiveFolderByID(ctx, folderLinkID, leaf, true, false, proton.LinkStateActive)
+-		return shouldRetry(ctx, err)
+-	}); err != nil {
++	link, err := f.searchByNameInFolderByID(ctx, folderLinkID, leaf, true, false)
++	if err != nil {
+ 		return nil, err
+ 	}
+ 	if link == nil { // both link and err are nil, file not found
+@@ -824,12 +859,8 @@ func (f *Fs) List(ctx context.Context, dir string) (fs.DirEntries, error) {
+ func (f *Fs) FindLeaf(ctx context.Context, pathID, leaf string) (string, bool, error) {
+ 	/* f.opt.Enc.FromStandardName(leaf) not required since the DirCache only process sanitized path */
+ 
+-	var link *proton.Link
+-	var err error
+-	if err = f.pacer.Call(func() (bool, error) {
+-		link, err = f.protonDrive.SearchByNameInActiveFolderByID(ctx, pathID, leaf, false, true, proton.LinkStateActive)
+-		return shouldRetry(ctx, err)
+-	}); err != nil {
++	link, err := f.searchByNameInFolderByID(ctx, pathID, leaf, false, true)
++	if err != nil {
+ 		return "", false, err
+ 	}
+ 	if link == nil {
+-- 
+2.53.0.windows.3
+

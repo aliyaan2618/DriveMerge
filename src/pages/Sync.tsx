@@ -194,10 +194,18 @@ function Editor({ job, onSave, onCancel }: { job: SyncJob; onSave: (j: SyncJob) 
     ? set({ ...j, schedule: undefined })
     : setS({ repeat: r, date: s?.date ?? new Date().toLocaleDateString("en-CA"), days: s?.days ?? [new Date().getDay()], day: s?.day ?? new Date().getDate() });
 
-  function submit(e: React.FormEvent) {
+  // rclone bug (rclone#8405): Mirror can delete folders in the destination that the filters exclude.
+  const mirrorWithFilters = j.mode === "mirror" && !!(j.include.trim() || j.exclude.trim());
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (s?.repeat === "weekly" && !s.days?.length) return setError("Pick at least one day.");
     if (s && !nextRun(s, new Date())) return setError("That date and time has already passed.");
+    if (mirrorWithFilters && !(await ask({
+      title: "Mirror with filters can delete extra folders",
+      message: "A known rclone bug can make Mirror delete folders in the destination even when your filters exclude them. Use Update mode instead (it never deletes), or save anyway if the destination has nothing you need to keep outside the filters.",
+      confirm: "Save anyway", danger: true,
+    }))) return;
     onSave(j);
   }
 
@@ -259,6 +267,9 @@ function Editor({ job, onSave, onCancel }: { job: SyncJob; onSave: (j: SyncJob) 
           </div>
         </div>
       </details>
+      {mirrorWithFilters && (
+        <p className="banner warn small">Mirror with Include/Exclude filters can delete folders in the destination that the filters leave out (a known rclone bug). Prefer <strong>Update</strong> mode, which never deletes.</p>
+      )}
       {error && <p className="error small">{error}</p>}
       <div className="row" style={{ justifyContent: "flex-end" }}>
         <button type="button" className="btn" onClick={onCancel}>Cancel</button>

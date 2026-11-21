@@ -10,7 +10,7 @@ import { MEDIA, PLAYABLE, streamUrl } from "../stream";
 import { ask, askText, tell } from "../dialogs";
 
 const badName = (v: string) => (/[\\/]/.test(v) ? "Names can't contain / or \\." : "");
-import { POOL, formatBytes, joinPath, upstreams } from "../lib";
+import { POOL, SKIP_RULES, formatBytes, joinPath, upstreams } from "../lib";
 
 import type { Item } from "../lib";
 type View = { kind: "browse" } | { kind: "search"; q: string } | { kind: "dupes" };
@@ -43,8 +43,8 @@ export default function Files() {
     if (view.kind === "browse") return;
     setFound(undefined);
     const params = view.kind === "search"
-      ? { fs: FS, remote: "", opt: { recurse: true }, _filter: { IncludeRule: [`*${view.q}*`], IgnoreCase: true } }
-      : { fs: FS, remote: "", opt: { recurse: true, filesOnly: true } };
+      ? { fs: FS, remote: "", opt: { recurse: true }, _filter: { IncludeRule: [`*${view.q}*`], ExcludeRule: SKIP_RULES, IgnoreCase: true } }
+      : { fs: FS, remote: "", opt: { recurse: true, filesOnly: true }, _filter: { ExcludeRule: SKIP_RULES } };
     rc<{ list: Item[] }>("operations/list", params).then(({ list }) => {
       if (view.kind === "search") {
         // Folders are always listed while recursing; keep only the ones whose own name matches.

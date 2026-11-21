@@ -89,13 +89,20 @@ export function nextRun(s: Schedule, after: Date): number | undefined {
   }
 }
 
+/**
+ * Top-level folders every sync, search and duplicate scan skips. OneDrive's "Personal Vault" is locked
+ * to other apps and makes listings fail with "ObjectHandle is Invalid" (rclone#8736).
+ */
+export const SKIP_DIRS = ["Personal Vault"];
+export const SKIP_RULES = SKIP_DIRS.map((d) => `/${d}/**`);
+
 const lines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
 
 /** Maps a saved sync job to the rclone rc method and parameters that run it. */
 export function syncRequest(job: SyncJob, dryRun = false): [string, Record<string, unknown>] {
   const filter: Record<string, unknown> = {};
   if (lines(job.include).length) filter.IncludeRule = lines(job.include);
-  if (lines(job.exclude).length) filter.ExcludeRule = lines(job.exclude);
+  filter.ExcludeRule = [...lines(job.exclude), ...SKIP_RULES];
   if (job.minSize.trim()) filter.MinSize = job.minSize.trim();
   if (job.maxSize.trim()) filter.MaxSize = job.maxSize.trim();
   if (job.maxAge.trim()) filter.MaxAge = job.maxAge.trim();

@@ -18,3 +18,17 @@ DriveMerge ships rclone built with our own fix for Proton Drive (`patches/rclone
 ## Drop rclone patches as upstream fixes ship
 
 Each time rclone releases a new version, check [patches/rclone/README.md](patches/rclone/README.md): drop patches whose pull request is in that release, bump `RCLONE_TAG`, and unhide Drime once rclone#10384 ships.
+
+## rclone issues to handle later
+
+From a review of all open rclone issues (21 November 2026). None has a fix in rclone yet; check before starting.
+
+- [ ] **Proton uploads freeze after one block error** ([rclone#10224](https://github.com/rclone/rclone/issues/10224)): large uploads to Proton stall for good. Patch rclone once a fix exists.
+- [ ] **1.76.0 hangs listing Windows network drives** ([rclone#10280](https://github.com/rclone/rclone/issues/10280)): syncing from a NAS or mapped drive can hang. Marked for rclone's next point release; update `RCLONE_TAG` when it ships.
+- [ ] **Google Drive same-name files skipped in sync** ([rclone#9267](https://github.com/rclone/rclone/issues/9267)): only one copy is backed up and the sync still says it succeeded. Show a warning in the sync report when rclone notices duplicates.
+- [ ] **Transfer history drops changed files** ([rclone#10087](https://github.com/rclone/rclone/issues/10087)): on big syncs the Report and Activity → Recent can miss changed or failed files. Raise rclone's history limit or build the report from the job's own stats.
+
+## Pool features
+
+- [ ] **Full account: try the next one** ([rclone#5308](https://github.com/rclone/rclone/issues/5308)): when the account the pool picked is full, retry the upload on another account instead of failing.
+- [ ] **OneDrive in the pool re-uploads files when only the date changed** ([rclone#4869](https://github.com/rclone/rclone/issues/4869)): wastes bandwidth; look for a setting or a patch.
