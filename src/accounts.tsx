@@ -94,9 +94,21 @@ const SETUP_OPT = { nonInteractive: true, obscure: true };
 
 /** Walks rclone's setup questions using their defaults; the OAuth step opens the browser and waits for sign-in. */
 async function answerQuestions(name: string, out: OutState) {
-  for (let i = 0; out.State && i < 20; i++) {
-    if (out.Error) throw new Error(out.Error);
+  // The last multiple-choice answer, so a choice rclone rejects (e.g. an unusable OneDrive drive) can be retried with the next option.
+  let choice: { state: string; left: string[] } | undefined;
+  // rclone reports a rejected answer either in the reply or as an HTTP error; treat both the same.
+  const step = (state: string, result: string) =>
+    rc<OutState>("config/update", { name, parameters: {}, opt: { ...SETUP_OPT, continue: true, state, result } }).catch((e): OutState => ({ Error: (e as Error).message }));
+  for (let i = 0; (out.State || out.Error) && i < 20; i++) {
+    if (out.Error) {
+      const next = choice?.left.shift();
+      if (!choice || next === undefined) throw new Error(out.Error);
+      out = await step(choice.state, next);
+      continue;
+    }
     const o = out.Option;
+    const options = [...new Set([o?.Default, ...(o?.Examples ?? []).map((e) => e.Value)].filter((v) => v != null && v !== "").map(String))];
+    choice = options.length > 1 && out.State ? { state: out.State, left: options.slice(1) } : undefined;
     // shortcut: rclone's shared Google client_id is being retired in 2026; we accept it when the user gave no client_id. Ship our own client_id before release.
     let result: string;
     if (o?.Name === "config_is_local") {
@@ -107,9 +119,11 @@ async function answerQuestions(name: string, out: OutState) {
     } else if (o?.Name === "config_shared_client_id") {
       result = "true";
     } else {
-      result = String(o?.Default ?? o?.Examples?.[0]?.Value ?? "");
+      result = options[0] ?? "";
     }
-    out = await rc<OutState>("config/update", { name, parameters: {}, opt: { ...SETUP_OPT, continue: true, state: out.State, result } });
+    // Only automatic picks are worth retrying; sign-in and yes/no answers above are not choices.
+    if (o?.Name === "config_token" || o?.Name === "config_is_local" || o?.Name === "config_shared_client_id") choice = undefined;
+    out = await step(out.State!, result);
   }
   if (out.Error) throw new Error(out.Error);
 }

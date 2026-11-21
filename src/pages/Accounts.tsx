@@ -297,7 +297,15 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
           <div className="dialog-body" style={{ marginTop: 12 }}>{optional.map(field)}</div>
         </details>
       )}
-      {status.error && <p className="error small">{status.error}</p>}
+      {status.error && (
+        <div className="banner warn small" role="alert">
+          <p>{friendlyError(status.error, providerName(p.Name))}</p>
+          <details style={{ marginTop: 6 }}>
+            <summary style={{ cursor: "pointer" }} className="muted">Show details</summary>
+            <p className="mono" style={{ marginTop: 6, wordBreak: "break-word", fontSize: 11 }}>{status.error}</p>
+          </details>
+        </div>
+      )}
       <div className="row" style={{ justifyContent: "flex-end" }}>
         <button type="button" className="btn" onClick={cancel}>{status.busy && oauth ? "Cancel sign-in" : "Cancel"}</button>
         <button className="btn primary" disabled={status.busy || !!nameError}>
@@ -309,3 +317,13 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
 }
 
 const rank = (p: Provider) => (POPULAR.indexOf(p.Name) + 1 || 99);
+
+/** A plain-language first line for rclone's setup errors; the raw text stays under "Show details". */
+function friendlyError(raw: string, service: string) {
+  if (/cancelled|didn't finish/i.test(raw)) return "Sign-in was cancelled. Click Sign in to try again.";
+  if (/couldn't decrypt|incorrect password|login failed|wrong password|401|403|unauthori[sz]ed|forbidden/i.test(raw))
+    return `${service} didn't accept those details. Check the email and password (and 2FA code, if you use one).`;
+  if (/timeout|timed out|no such host|connection refused|network/i.test(raw)) return `Couldn't reach ${service}. Check your internet connection and try again.`;
+  if (/failed to query root|objecthandle|drive/i.test(raw)) return `Signed in, but ${service} wouldn't open your drive. Try again in a minute; if it keeps happening, sign in at ${service}'s website once first.`;
+  return `Couldn't finish setting up ${service}.`;
+}
