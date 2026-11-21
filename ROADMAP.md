@@ -99,7 +99,8 @@ DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 **Still to do in Phase 1**
 
 **Pooling and accounts**
-- [ ] Test OneDrive, Dropbox, Mega, Box, pCloud, SFTP and WebDAV with real accounts
+- [x] OneDrive tested with a real account (21 November 2026; needed the drive-choice retry)
+- [ ] Test Dropbox, MEGA, Box, pCloud, SFTP and WebDAV with real accounts
 - [x] Show which account each file is stored in
 - [x] Rename an account, reconnect an account whose sign-in expired (shows "Needs sign-in")
 - [x] Warn before an account is removed, with how much of the pool it holds
