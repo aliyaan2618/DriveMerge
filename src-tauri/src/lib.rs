@@ -148,6 +148,8 @@ fn start_rclone(app: &tauri::AppHandle) -> Result<Rclone, Box<dyn std::error::Er
     let exe = std::env::current_exe()?.with_file_name(if cfg!(windows) { "rclone.exe" } else { "rclone" });
     let mut cmd = Command::new(exe);
     cmd.args(["rcd", "--rc-addr", &format!("127.0.0.1:{port}"), "--rc-user", "drivemerge", "--rc-pass", &pass])
+        // Keep account connections for an hour (default 5 min) so slow logins like MEGA's aren't repeated.
+        .args(["--fs-cache-expire-duration", "1h"])
         .args(["--rc-allow-origin", origin, "--config"])
         .arg(data.join("rclone.conf"));
     #[cfg(windows)]

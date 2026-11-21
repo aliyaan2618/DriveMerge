@@ -158,3 +158,18 @@ export function authorizeArgs(help: string): string[] {
   const cmd = /rclone authorize((?:\s+"[^"]*")+)/.exec(help)?.[1] ?? "";
   return [...cmd.matchAll(/"([^"]*)"/g)].map((m) => m[1]);
 }
+
+export type Item = { Path: string; Name: string; Size: number; ModTime: string; IsDir: boolean };
+
+/** Combines per-account listings like the pool does: one row per name, noting which accounts hold it. */
+export function merge(results: [string, Item[]][]): { items: Item[]; sources: Record<string, string[]> } {
+  const byName = new Map<string, Item>();
+  const sources: Record<string, string[]> = {};
+  for (const [account, list] of results)
+    for (const it of list) {
+      if (!byName.has(it.Name)) byName.set(it.Name, it);
+      (sources[it.Name] ??= []).push(account);
+    }
+  return { items: [...byName.values()], sources };
+}
+

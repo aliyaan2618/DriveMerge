@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Cloud, Database, Layers, Loader2, Pencil, Plus, RotateCw, Search, Trash2 } from "../icons";
+import { ArrowLeft, Cloud, Database, ExternalLink, Layers, Loader2, Pencil, Plus, RotateCw, Search, Trash2 } from "../icons";
 import { PageHeader, Stat } from "../ui";
 import { ask, askText, tell } from "../dialogs";
 import { inTauri, rc } from "../rc";
@@ -27,9 +27,33 @@ const HINTS: Record<string, string> = { "2fa": "Only if two-step verification is
 const PROMOTE = new Set(["2fa"]);
 
 /** Why this service asks for a password here, and anything special it needs. */
+// Official web sign-in pages of services that need an email and password typed into DriveMerge.
+const SIGNIN_PAGES: Record<string, string> = {
+  mega: "https://mega.nz/login",
+  protondrive: "https://account.proton.me/login",
+  koofr: "https://app.koofr.net/login",
+  filen: "https://app.filen.io/#/login",
+};
+const openExternal = (url: string) => import("@tauri-apps/plugin-opener").then((o) => o.openUrl(url)).catch(() => window.open(url));
+
 function SignInNote({ type }: { type: string }) {
+  const page = SIGNIN_PAGES[type];
+  return (
+    <>
+      <SignInText type={type} />
+      {page && (
+        <div className="row wrap" style={{ gap: 10, marginTop: -6 }}>
+          <button type="button" className="btn" onClick={() => openExternal(page)}><ExternalLink size={15} /> Open {providerName(type)} sign-in page</button>
+          <span className="small muted">To check your details or 2FA code, or to create a free account first.</span>
+        </div>
+      )}
+    </>
+  );
+}
+
+function SignInText({ type }: { type: string }) {
   const link = (url: string, text: string) => (
-    <a href={url} onClick={(e) => { e.preventDefault(); import("@tauri-apps/plugin-opener").then((o) => o.openUrl(url)).catch(() => window.open(url)); }}>{text}</a>
+    <a href={url} onClick={(e) => { e.preventDefault(); openExternal(url); }}>{text}</a>
   );
   switch (type) {
     case "mega": return <p className="banner small">MEGA doesn't offer browser sign-in to other apps (your password also unlocks your encrypted files), so enter your MEGA email and password here.</p>;

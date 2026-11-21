@@ -7,6 +7,7 @@ import { useJobs } from "../jobs";
 import { rc, useRc } from "../rc";
 import { PageHeader, Stat } from "../ui";
 import { addAccount } from "./Accounts";
+import { prefetch } from "../listing";
 
 // Segment colours for accounts in the storage bar (distinct, readable in light and dark).
 const SEG = ["#5b5bf0", "#f97316", "#14b8a6", "#ec4899", "#eab308", "#0ea5e9", "#84cc16", "#8b5cf6"];
@@ -36,6 +37,8 @@ export default function Dashboard({ go }: PageProps) {
   const jobs = useJobs();
   const members = upstreams(pool?.upstreams).map((u) => u.replace(/:$/, ""));
   const space = useSpace(accounts.map((a) => a.name));
+  // Pre-load the pool's top folder so the first visit to Files is instant.
+  useEffect(() => prefetch(members), [members.join(" ")]); // eslint-disable-line react-hooks/exhaustive-deps
   const recent = useRc<{ transferred?: Done[] }>("core/transferred");
   const have = accounts.map((a) => a.type);
 

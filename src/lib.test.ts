@@ -75,3 +75,12 @@ test("authorizeArgs reads rclone's authorize command", async () => {
   assert.deepEqual(authorizeArgs('\trclone authorize "drive" "eyJzY29wZSI6ImRyaXZlIn0"\n'), ["drive", "eyJzY29wZSI6ImRyaXZlIn0"]);
   assert.deepEqual(authorizeArgs("no command here"), []);
 });
+
+test("merge combines per-account listings like the pool", async () => {
+  const { merge } = await import("./lib.ts");
+  const f = (Name: string, IsDir = false) => ({ Path: Name, Name, Size: 1, ModTime: "", IsDir });
+  const r = merge([["A", [f("Photos", true), f("a.txt")]], ["B", [f("Photos", true), f("b.txt")]]]);
+  assert.deepEqual(r.items.map((i) => i.Name).sort(), ["Photos", "a.txt", "b.txt"]);
+  assert.deepEqual(r.sources.Photos, ["A", "B"]);
+  assert.deepEqual(r.sources["b.txt"], ["B"]);
+});

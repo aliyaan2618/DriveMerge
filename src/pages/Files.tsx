@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { appCacheDir, downloadDir, join } from "@tauri-apps/api/path";
 import { ChevronRight, Copy, Download, Play, ExternalLink, File, Folder, FolderInput, FolderPlus, Link, Loader2, Pencil, RefreshCw, Search, Trash2, Upload, X } from "../icons";
-import { inTauri, rc, upload, useRc } from "../rc";
+import { inTauri, rc, upload } from "../rc";
+import { lastDuration, useListing } from "../listing";
 import { useAccounts } from "../accounts";
 import { PageHeader } from "../ui";
 import { addAccount } from "./Accounts";
@@ -11,7 +12,7 @@ import { ask, askText, tell } from "../dialogs";
 const badName = (v: string) => (/[\\/]/.test(v) ? "Names can't contain / or \\." : "");
 import { POOL, formatBytes, joinPath, upstreams } from "../lib";
 
-type Item = { Path: string; Name: string; Size: number; ModTime: string; IsDir: boolean };
+import type { Item } from "../lib";
 type View = { kind: "browse" } | { kind: "search"; q: string } | { kind: "dupes" };
 const FS = `${POOL}:`;
 const accountOf = (upstream: string) => upstream.replace(/:$/, "");
@@ -32,8 +33,8 @@ export default function Files() {
   const playDialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const moveDialog = useRef<HTMLDialogElement>(null);
-  const listing = useRc<{ list: Item[] }>("operations/list", { fs: FS, remote: path });
-  const sources = useSources(isUnion ? members : [], path, listing.data);
+  const listing = useListing(members, path);
+  const sources = listing.shown?.sources ?? {};
   const [found, setFound] = useState<{ items?: Item[]; error?: string }>();
 
   useEffect(() => setSelected(new Set()), [path, view]);
@@ -62,7 +63,7 @@ export default function Files() {
       </div>
     );
 
-  const refresh = () => (view.kind === "browse" ? listing.reload() : setView({ ...view }));
+  const refresh = () => (view.kind === "browse" ? listing.refresh() : setView({ ...view }));
 
   async function run(msg: string, fn: () => Promise<unknown>, done?: string) {
     setToast(msg);
@@ -143,10 +144,14 @@ export default function Files() {
 
   const crumbs = path ? path.split("/") : [];
   const items = view.kind === "browse"
-    ? (listing.data?.list ?? []).filter((i) => i.Name.toLowerCase().includes(filter.toLowerCase())).sort(byName)
+    ? (listing.shown?.items ?? []).filter((i) => i.Name.toLowerCase().includes(filter.toLowerCase())).sort(byName)
     : (found?.items ?? []);
-  const loadingList = view.kind === "browse" ? !listing.data && !listing.error : !found;
-  const error = view.kind === "browse" ? listing.error : found?.error;
+  // Browse shows rows as soon as any account answers; search and duplicates wait for the full scan.
+  const loadingList = view.kind === "browse" ? !listing.shown?.items.length && listing.loading : !found;
+  const failed = view.kind === "browse" ? Object.entries(listing.shown?.failed ?? {}) : [];
+  const error = view.kind === "browse"
+    ? (failed.length && failed.length === members.length && !listing.loading ? failed[0][1] : undefined)
+    : found?.error;
   const chosen = items.filter((i) => selected.has(i.Path));
   const toggle = (p: string) => setSelected((s) => { const n = new Set(s); n.has(p) ? n.delete(p) : n.add(p); return n; });
 
@@ -220,6 +225,30 @@ export default function Files() {
           <button className="btn danger" onClick={() => remove(chosen)}><Trash2 size={15} /> Delete</button>
           <button className="icon-btn" aria-label="Clear selection" onClick={() => setSelected(new Set())}><X size={16} /></button>
         </div>
+      )}
+
+      {view.kind === "browse" && listing.loading && (() => {
+        const done = listing.total - listing.pending.length;
+        const elapsed = Math.floor((Date.now() - listing.started) / 1000);
+        // Estimate from how long the accounts still loading took last time.
+        const slowest = Math.max(0, ...listing.pending.map((a) => lastDuration.get(a) ?? 0)) / 1000;
+        const left = Math.round(slowest - elapsed);
+        return (
+          <div className="card row small" style={{ padding: "10px 16px", gap: 10 }} role="status">
+            <Loader2 size={15} className="spin" />
+            <span className="muted">
+              {listing.cached ? "Showing your last view, checking for changes" : <>Loaded <span className="num">{done}</span> of <span className="num">{listing.total}</span> accounts</>}
+              {" · waiting for "}{listing.pending.join(", ")}
+              {" · "}<span className="num">{elapsed}s</span>{left > 0 && <> · about <span className="num">{left}s</span> left</>}
+            </span>
+            <div className="bar grow" style={{ minWidth: 80 }}><div style={{ width: `${(done / listing.total) * 100}%` }} /></div>
+          </div>
+        );
+      })()}
+      {view.kind === "browse" && !listing.loading && failed.length > 0 && !error && (
+        <p className="banner warn small">
+          Couldn't list {failed.map(([a]) => a).join(", ")}, so files there aren't shown. Try Refresh, or check the account on the Accounts page.
+        </p>
       )}
 
       <section className={`card${drag ? " dropzone" : ""}`} style={{ padding: 0 }}
@@ -368,23 +397,6 @@ function MoveDialog({ items, accounts, startPath, locate, onClose, onDone }: {
       </div>
     </form>
   );
-}
-
-/** For each name in the current folder, which pool accounts hold it. */
-function useSources(accounts: string[], path: string, listing: unknown) {
-  const [map, setMap] = useState<Record<string, string[]>>({});
-  const key = accounts.join(" ");
-  useEffect(() => {
-    if (!accounts.length) return setMap({});
-    Promise.all(accounts.map((a) =>
-      rc<{ list: Item[] }>("operations/list", { fs: `${a}:`, remote: path }).then((r) => r.list.map((i) => [i.Name, a] as const), () => []),
-    )).then((all) => {
-      const m: Record<string, string[]> = {};
-      for (const [name, a] of all.flat()) (m[name] ??= []).push(a);
-      setMap(m);
-    });
-  }, [key, path, listing]); // eslint-disable-line react-hooks/exhaustive-deps
-  return map;
 }
 
 const byName = (a: Item, b: Item) => Number(b.IsDir) - Number(a.IsDir) || a.Name.localeCompare(b.Name);
