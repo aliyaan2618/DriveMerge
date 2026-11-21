@@ -1,0 +1,143 @@
+From ffdb2b39110acdfb1727a3e7d823e17b4c6c5afa Mon Sep 17 00:00:00 2001
+From: aliyaan2618 <58987323+aliyaan2618@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 15:32:45 +0500
+Subject: [PATCH] protondrive: fix "refusing to follow HTTPS to HTTP redirect"
+ errors
+
+Proton's API can answer an https request with a redirect to the same
+host over plain http, which rclone's transport rightly refuses because
+it would send the credentials in cleartext. That made Proton Drive
+remotes fail with "refusing to follow HTTPS to HTTP redirect".
+
+Wrap the transport so such a hop is made over https instead: the
+request never leaves TLS. Redirects to other hosts, and a redirect back
+to the very URL that issued it (which would loop), are left alone and
+still refused.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../https_upgrade_internal_test.go            | 56 +++++++++++++++++++
+ backend/protondrive/protondrive.go            | 30 +++++++++-
+ 2 files changed, 85 insertions(+), 1 deletion(-)
+ create mode 100644 backend/protondrive/https_upgrade_internal_test.go
+
+diff --git a/backend/protondrive/https_upgrade_internal_test.go b/backend/protondrive/https_upgrade_internal_test.go
+new file mode 100644
+index 000000000..82f7ee6c9
+--- /dev/null
++++ b/backend/protondrive/https_upgrade_internal_test.go
+@@ -0,0 +1,56 @@
++package protondrive
++
++import (
++	"net/http"
++	"net/url"
++	"testing"
++
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++)
++
++// recordingTransport records the URL of the last request it was given.
++type recordingTransport struct{ got *url.URL }
++
++func (r *recordingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
++	r.got = req.URL
++	return &http.Response{StatusCode: http.StatusOK, Request: req}, nil
++}
++
++// redirectHop returns a request for to, made as a redirect from from.
++func redirectHop(t *testing.T, from, to string) *http.Request {
++	prev, err := http.NewRequest("GET", from, nil)
++	require.NoError(t, err)
++	req, err := http.NewRequest("GET", to, nil)
++	require.NoError(t, err)
++	req.Response = &http.Response{StatusCode: http.StatusFound, Request: prev}
++	return req
++}
++
++func TestHTTPSUpgradeTransport(t *testing.T) {
++	for _, test := range []struct {
++		name, from, to, want string
++	}{
++		{"same host downgrade is upgraded", "https://drive-api.proton.me/drive/shares/", "http://drive-api.proton.me/drive/shares", "https://drive-api.proton.me/drive/shares"},
++		{"host matched case insensitively", "https://drive-api.proton.me/a", "http://DRIVE-API.proton.me/b", "https://drive-api.proton.me/b"},
++		{"redirect back to itself is not upgraded", "https://drive-api.proton.me/drive/shares", "http://drive-api.proton.me/drive/shares", "http://drive-api.proton.me/drive/shares"},
++		{"other host is left alone", "https://drive-api.proton.me/a", "http://example.com/a", "http://example.com/a"},
++		{"https redirect is left alone", "https://drive-api.proton.me/a", "https://drive-api.proton.me/b", "https://drive-api.proton.me/b"},
++		{"http origin is left alone", "http://drive-api.proton.me/a", "http://drive-api.proton.me/b", "http://drive-api.proton.me/b"},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			rec := &recordingTransport{}
++			_, err := httpsUpgradeTransport{rec}.RoundTrip(redirectHop(t, test.from, test.to))
++			require.NoError(t, err)
++			assert.Equal(t, test.want, rec.got.String())
++		})
++	}
++
++	// A first request, not a redirect, is passed through unchanged.
++	rec := &recordingTransport{}
++	req, err := http.NewRequest("GET", "http://drive-api.proton.me/a", nil)
++	require.NoError(t, err)
++	_, err = httpsUpgradeTransport{rec}.RoundTrip(req)
++	require.NoError(t, err)
++	assert.Equal(t, "http://drive-api.proton.me/a", rec.got.String())
++}
+diff --git a/backend/protondrive/protondrive.go b/backend/protondrive/protondrive.go
+index 54f40d81e..e263ff469 100644
+--- a/backend/protondrive/protondrive.go
++++ b/backend/protondrive/protondrive.go
+@@ -6,6 +6,7 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"io"
++	"net/http"
+ 	"path"
+ 	"regexp"
+ 	"strings"
+@@ -459,6 +460,33 @@ func (l protonLogger) Errorf(format string, v ...any) { fs.Errorf(l.f, format, v
+ func (l protonLogger) Warnf(format string, v ...any)  { fs.Logf(l.f, format, v...) }
+ func (l protonLogger) Debugf(format string, v ...any) { fs.Debugf(l.f, format, v...) }
+ 
++// httpsUpgradeTransport follows a redirect from https to plain http on
++// the same host by making the request over https instead.
++//
++// Proton's API can redirect https://drive-api.proton.me/... to the same
++// URL over http. rclone's transport refuses such a redirect because it
++// would send the credentials in cleartext, so the hop is upgraded back
++// to https and the request never leaves TLS.
++type httpsUpgradeTransport struct{ http.RoundTripper }
++
++// RoundTrip implements http.RoundTripper.
++func (t httpsUpgradeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
++	if req.URL.Scheme == "http" && req.Response != nil && req.Response.Request != nil {
++		prev := req.Response.Request.URL
++		if prev.Scheme == "https" && strings.EqualFold(prev.Hostname(), req.URL.Hostname()) {
++			upgraded := req.Clone(req.Context())
++			upgraded.URL.Scheme = "https"
++			upgraded.URL.Host = prev.Host
++			// Upgrading a redirect back to the URL that issued it would loop, so
++			// leave that to the inner transport, which refuses the downgrade.
++			if upgraded.URL.String() != prev.String() {
++				req = upgraded
++			}
++		}
++	}
++	return t.RoundTripper.RoundTrip(req)
++}
++
+ func newProtonDrive(ctx context.Context, f *Fs, opt *Options, m configmap.Mapper) (*protonDriveAPI.ProtonDrive, error) {
+ 	config := protonDriveAPI.NewDefaultConfig()
+ 	config.AppVersion = opt.AppVersion
+@@ -470,7 +498,7 @@ func newProtonDrive(ctx context.Context, f *Fs, opt *Options, m configmap.Mapper
+ 	// Route HTTP through rclone's transport so global flags such as
+ 	// --dump headers, --no-check-certificate, --user-agent, --bind,
+ 	// --ca-cert and --header all take effect against Proton Drive.
+-	config.Transport = fshttp.NewTransport(ctx)
++	config.Transport = httpsUpgradeTransport{fshttp.NewTransport(ctx)}
+ 
+ 	// Route bridge and go-proton-api log output through rclone's
+ 	// logging system so it honours -v / -vv and --log-file.
+-- 
+2.53.0.windows.3
+

@@ -39,7 +39,16 @@ jobs:
           v=$(node -p "require('./package.json').version")
           [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "package.json is $v but the tag is $GITHUB_REF_NAME"; exit 1; }
 
-      # `npm run tauri build` first runs scripts/fetch-rclone.mjs (checksum-verified rclone download).
+      # Bundled engine: rclone built from its official source with DriveMerge's fixes (patches/rclone).
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+          cache: false
+
+      - name: Build patched rclone
+        run: node scripts/build-rclone.mjs
+
+      # `npm run tauri build` runs scripts/fetch-rclone.mjs first; it skips because the engine is already built.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

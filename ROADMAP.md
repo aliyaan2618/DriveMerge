@@ -77,6 +77,11 @@ DriveMerge pools several cloud storage accounts (Google Drive, OneDrive, Dropbox
 - [x] In-app dialogs replace Windows message boxes
 - [x] Filen removed from the Dashboard's free-storage list (needs an API key from its CLI); still available under all services
 
+### Patched rclone, 21 November 2026
+- [x] Proton Drive: rclone 1.76 refused Proton's https-to-http redirect. DriveMerge now ships rclone built from source with a fix that makes that hop over https (never unencrypted). Patch in `patches/rclone/`, also on the `drivemerge` branch of the private repo aliyaan2618/rclone
+- [ ] Confirm with a real Proton account; then re-add Proton Drive to the free-storage list
+- [ ] Send the fix to rclone upstream (optional) so the patch can be dropped
+
 ### Bugs fixed during testing
 - [x] A pool with only one account broke (rclone's union refuses one member). It now becomes a simple link to that account.
 - [x] After the pool changed, rclone kept showing the old file list from its cache. The cache now clears on every change.
