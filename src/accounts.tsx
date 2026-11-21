@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Server } from "./icons";
 import { siBox, siDropbox, siFilen, siGoogledrive, siMega, siProtondrive, type SimpleIcon } from "simple-icons";
 import { inTauri, rc, useRc } from "./rc";
-import { tell } from "./dialogs";
+import { askText, tell } from "./dialogs";
 import { invoke } from "@tauri-apps/api/core";
 import { POOL, formatBytes, toggleUpstream, upstreams as upstreamList, authorizeArgs } from "./lib";
 
@@ -126,12 +126,13 @@ async function writePool(pool: Record<string, string> | undefined, upstreams: st
 export const setInPool = (pool: Record<string, string> | undefined, name: string, on: boolean) =>
   savePool(pool, toggleUpstream(pool?.upstreams, name, on));
 
-type Option = { Name: string; Help?: string; Default: unknown; Examples?: { Value: string }[] };
+type Option = { Name: string; Help?: string; Default: unknown; Required?: boolean; Examples?: { Value: string }[] };
 type OutState = { State?: string; Option?: Option; Error?: string };
 const SETUP_OPT = { nonInteractive: true, obscure: true };
 
 /** Walks rclone's setup questions using their defaults; the OAuth step opens the browser and waits for sign-in. */
-async function answerQuestions(name: string, out: OutState) {
+/** `answers` are values the user gave in the form for rclone's setup questions, by question name (e.g. config_login_token). */
+async function answerQuestions(name: string, out: OutState, answers: Record<string, string> = {}) {
   // The last multiple-choice answer, so a choice rclone rejects (e.g. an unusable OneDrive drive) can be retried with the next option.
   let choice: { state: string; left: string[] } | undefined;
   // rclone reports a rejected answer either in the reply or as an HTTP error; treat both the same.
@@ -157,7 +158,13 @@ async function answerQuestions(name: string, out: OutState) {
     } else if (o?.Name === "config_shared_client_id") {
       result = "true";
     } else {
-      result = options[0] ?? "";
+      result = answers[o?.Name ?? ""] ?? options[0] ?? "";
+      // A required question DriveMerge can't answer by itself: ask the user rather than send an empty answer.
+      if (!result && o?.Required) {
+        const typed = await askText({ title: "One more detail", message: (o.Help ?? "").trim(), label: o.Name.replace(/^config_/, "").replace(/_/g, " "), confirm: "Continue" });
+        if (typed === null) throw new Error("Setup was cancelled.");
+        result = typed;
+      }
     }
     // Only automatic picks are worth retrying; sign-in and yes/no answers above are not choices.
     if (o?.Name === "config_token" || o?.Name === "config_is_local" || o?.Name === "config_shared_client_id") choice = undefined;
@@ -171,9 +178,9 @@ async function answerQuestions(name: string, out: OutState) {
 const GOOGLE_ID = import.meta.env.VITE_GDRIVE_CLIENT_ID as string | undefined;
 const GOOGLE_SECRET = import.meta.env.VITE_GDRIVE_CLIENT_SECRET as string | undefined;
 
-export async function createAccount(name: string, type: string, parameters: Record<string, string>) {
+export async function createAccount(name: string, type: string, parameters: Record<string, string>, answers?: Record<string, string>) {
   if (type === "drive" && GOOGLE_ID && !parameters.client_id) parameters = { ...parameters, client_id: GOOGLE_ID, client_secret: GOOGLE_SECRET ?? "" };
-  await answerQuestions(name, await rc<OutState>("config/create", { name, type, parameters, opt: SETUP_OPT }));
+  await answerQuestions(name, await rc<OutState>("config/create", { name, type, parameters, opt: SETUP_OPT }), answers);
 }
 
 /** Signs in again, keeping the account's name and settings. */

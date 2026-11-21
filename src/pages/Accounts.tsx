@@ -36,6 +36,15 @@ const ALSO_SHOW = new Set(["mailbox_password"]);
 
 /** Why this service asks for a password here, and anything special it needs. */
 // Official web sign-in pages of services that need an email and password typed into DriveMerge.
+// Services that sign in with a token you generate on their website (rclone asks for it during setup).
+const TOKEN_SIGNIN: Record<string, { question: string; label: string; page: string; pageLabel: string; how: string }> = {
+  jottacloud: {
+    question: "config_login_token", label: "Personal login token",
+    page: "https://www.jottacloud.com/web/secure", pageLabel: "Open Jottacloud security settings",
+    how: "Jottacloud signs in with a personal login token instead of your password. Open your Jottacloud security settings, generate a personal login token, and paste it below. It works once, so generate a new one if setup fails.",
+  },
+};
+
 const SIGNIN_PAGES: Record<string, string> = {
   mega: "https://mega.nz/login",
   protondrive: "https://account.proton.me/login",
@@ -45,6 +54,16 @@ const SIGNIN_PAGES: Record<string, string> = {
 const openExternal = (url: string) => import("@tauri-apps/plugin-opener").then((o) => o.openUrl(url)).catch(() => window.open(url));
 
 function SignInNote({ type }: { type: string }) {
+  const tok = TOKEN_SIGNIN[type];
+  if (tok)
+    return (
+      <>
+        <p className="banner small">{tok.how}</p>
+        <div className="row wrap" style={{ gap: 10, marginTop: -6 }}>
+          <button type="button" className="btn" onClick={() => openExternal(tok.page)}><ExternalLink size={15} /> {tok.pageLabel}</button>
+        </div>
+      </>
+    );
   const page = SIGNIN_PAGES[type];
   return (
     <>
@@ -268,7 +287,9 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
   const opts = p.Options.filter((o) => (!o.Advanced || ALSO_SHOW.has(o.Name)) && !o.Hide && o.Name !== "provider" && appliesTo(o, provider));
   const required = opts.filter((o) => o.Required || PROMOTE.has(o.Name));
   const optional = opts.filter((o) => !o.Required && !PROMOTE.has(o.Name));
-  const oauth = p.Options.some((o) => o.Name === "token");
+  const tokenSignIn = TOKEN_SIGNIN[p.Name];
+  // Jottacloud stores an OAuth token but gets it from a login token, not a browser sign-in.
+  const oauth = p.Options.some((o) => o.Name === "token") && !tokenSignIn;
   const hasPassword = opts.some((o) => o.IsPassword);
   const nameError = !NAME_RE.test(name) ? "Use letters, numbers, - and _ only." : taken.includes(name) || name === POOL ? "That name is taken." : "";
 
@@ -277,9 +298,10 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
     if (nameError) return;
     setStatus({ busy: true });
     try {
-      const params = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== ""));
+      // "__" keys are form-only answers (e.g. a login token), never saved as rclone settings.
+      const params = Object.fromEntries(Object.entries(values).filter(([k, v]) => v !== "" && !k.startsWith("__")));
       if (providerOpt) params.provider = provider;
-      await createAccount(name, p!.Name, params);
+      await createAccount(name, p!.Name, params, tokenSignIn ? { [tokenSignIn.question]: values.__login_token ?? "" } : undefined);
       await onDone(name);
     } catch (err) {
       await rc("config/delete", { name }).catch(() => {});
@@ -330,6 +352,13 @@ function AddAccount({ initial, taken, onDone, onCancel }: { initial?: string; ta
           </select>
         </label>
       )}
+      {tokenSignIn && (
+        <label className="field">
+          <span>{tokenSignIn.label} *</span>
+          <input required value={values.__login_token ?? ""} autoComplete="off" spellCheck={false}
+            onChange={(e) => setValues({ ...values, __login_token: e.target.value.trim() })} />
+        </label>
+      )}
       {required.map(field)}
       {oauth && <p className="banner small">Your browser opens {providerName(p.Name)}'s own sign-in page. Sign in there and click Allow; DriveMerge comes back to the front when you're done. DriveMerge never sees your password.</p>}
       {!oauth && hasPassword && <p className="small muted">Your password is stored scrambled on this PC and only sent to {providerName(p.Name)}.</p>}
@@ -364,6 +393,8 @@ const rank = (p: Provider) => (POPULAR.indexOf(p.Name) + 1 || 99);
 /** A plain-language first line for rclone's setup errors; the raw text stays under "Show details". */
 function friendlyError(raw: string, service: string) {
   if (/cancelled|didn't finish/i.test(raw)) return "Sign-in was cancelled. Click Sign in to try again.";
+  if (/login token|illegal base64|failed to get oauth token: (EOF|illegal)/i.test(raw))
+    return `${service} didn't accept that login token. Generate a new one (each token works only once) and paste it again.`;
   if (/couldn't decrypt|incorrect password|login failed|wrong password|401|403|unauthori[sz]ed|forbidden/i.test(raw))
     return `${service} didn't accept those details. Check the email and password (and 2FA code, if you use one).`;
   if (/timeout|timed out|no such host|connection refused|network/i.test(raw)) return `Couldn't reach ${service}. Check your internet connection and try again.`;
