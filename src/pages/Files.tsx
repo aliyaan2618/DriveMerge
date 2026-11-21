@@ -258,7 +258,7 @@ export default function Files() {
                       </span>
                     </td>
                     {isUnion && view.kind === "browse" && <td className="small muted truncate">{sources[it.Name]?.join(", ") ?? ""}</td>}
-                    <td className="muted">{it.IsDir ? "—" : formatBytes(it.Size)}</td>
+                    <td className="muted num">{it.IsDir ? "—" : formatBytes(it.Size)}</td>
                     <td className="muted" style={{ whiteSpace: "nowrap" }}>{new Date(it.ModTime).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</td>
                     <td>{actions(it)}</td>
                   </tr>

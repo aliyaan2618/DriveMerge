@@ -69,7 +69,7 @@ export function Usage({ fs }: { fs: string }) {
   return (
     <div style={{ width: 180 }}>
       <div className="bar" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}><div style={{ width: `${pct}%` }} /></div>
-      <div className="small muted" style={{ marginTop: 4 }}>{formatBytes(a.used)} of {formatBytes(a.total)}</div>
+      <div className="small muted num" style={{ marginTop: 4 }}>{formatBytes(a.used)} of {formatBytes(a.total)}</div>
     </div>
   );
 }

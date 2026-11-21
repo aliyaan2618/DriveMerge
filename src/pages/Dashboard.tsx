@@ -110,8 +110,8 @@ export default function Dashboard({ go }: PageProps) {
                 </div>
                 {s?.error ? <span className="small error" title={s.error}>Couldn't read space</span> : (
                   <>
-                    <span className="small muted mono">{s ? `${formatBytes(s.used)} / ${formatBytes(s.total)}` : "…"}</span>
-                    <span className="mono" style={{ width: 48, textAlign: "right" }}>{s ? `${ap}%` : ""}</span>
+                    <span className="small muted num">{s ? `${formatBytes(s.used)} / ${formatBytes(s.total)}` : "…"}</span>
+                    <span className="num" style={{ width: 48, textAlign: "right" }}>{s ? `${ap}%` : ""}</span>
                   </>
                 )}
               </div>
@@ -132,7 +132,7 @@ export default function Dashboard({ go }: PageProps) {
               {transfers.map((t, i) => (
                 <tr key={i}>
                   <td className="truncate" style={{ maxWidth: 360 }}>{t.name}</td>
-                  <td className="muted mono">{formatBytes(t.size)}</td>
+                  <td className="muted num">{formatBytes(t.size)}</td>
                   <td className="muted">{new Date(t.completed_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</td>
                   <td><span className={`chip ${t.error ? "error" : "ok"}`}>{t.error ? "Failed" : "Done"}</span></td>
                 </tr>
@@ -167,7 +167,7 @@ function FreeStorage({ have }: { have: string[] }) {
             <div key={t.type} className="row" style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
               <Badge type={t.type} />
               <div className="grow" style={{ minWidth: 0 }}>
-                <p className="truncate"><strong>{t.gb} GB</strong> <span className="muted">· {providerName(t.type)}</span></p>
+                <p className="truncate"><strong className="num">{t.gb} GB</strong> <span className="muted">· {providerName(t.type)}</span></p>
                 <p className="small muted truncate" title={t.note}>{n ? `You have ${n}` : t.note ?? "Free plan"}</p>
               </div>
               <button className="btn" style={{ height: 30, padding: "0 10px" }} aria-label={`Add ${n ? "another " : ""}${providerName(t.type)} account`}

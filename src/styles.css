@@ -6,7 +6,9 @@
   --border: #e6e5e0;
   --ink: #18181b;
   --ink-text: #ffffff;
-  --mono: "Cascadia Mono", "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --sans: "Geist Variable", system-ui, sans-serif;
+  --num: "Plus Jakarta Sans Variable", "Geist Variable", system-ui, sans-serif;
+  --mono: "Geist Mono Variable", ui-monospace, Consolas, monospace;
   --text: #16161a;
   --muted: #6b6b76;
   --accent: #5b5bf0;
@@ -37,7 +39,7 @@
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body {
-  font: 14px/1.5 Inter, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font: 14px/1.5 var(--sans);
   background: var(--bg); color: var(--text);
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: tabular-nums;
@@ -81,7 +83,7 @@ a { color: var(--accent); }
 .grid { display: grid; gap: 16px; }
 .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-.stat-value { font-size: 22px; font-weight: 600; margin-top: 4px; font-family: var(--mono); letter-spacing: -0.02em; }
+.stat-value { font-size: 22px; font-weight: 600; margin-top: 4px; font-family: var(--num); letter-spacing: -0.02em; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-weight: 500; cursor: pointer; white-space: nowrap; }
@@ -147,7 +149,9 @@ dialog::backdrop { background: #0000004d; backdrop-filter: blur(2px); }
 .segbar > div { border-radius: 4px; min-width: 4px; }
 .seg-free { background: repeating-linear-gradient(135deg, var(--border) 0 2px, transparent 2px 7px); border: 1px solid var(--border); }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-.mono { font-family: var(--mono); font-size: 13px; }
+.mono { font-family: var(--mono); font-size: 12px; }
+/* Numbers (sizes, speeds, percentages): Plus Jakarta Sans with equal-width digits so columns line up. */
+.num { font-family: var(--num); font-variant-numeric: tabular-nums; }
 
 /* Toggle switch: a styled checkbox (keeps native keyboard and screen-reader behaviour). */
 .switch { position: relative; display: inline-flex; width: 36px; height: 20px; }
@@ -168,3 +172,5 @@ code { font-family: var(--mono); font-size: 12px; background: var(--hover); padd
 .card.center { height: auto; }
 .btn.danger-solid { background: var(--red); border-color: var(--red); color: #fff; }
 .btn.danger-solid:hover { opacity: 0.9; }
+
+button, input, select, textarea { font-family: inherit; }

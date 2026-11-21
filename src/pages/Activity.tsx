@@ -48,10 +48,10 @@ export default function Activity({ stats }: PageProps) {
                     <td className="truncate" style={{ maxWidth: 360 }}>{t.name}</td>
                     <td>
                       <div className="bar"><div style={{ width: `${t.percentage}%` }} /></div>
-                      <span className="small muted mono">{formatBytes(t.bytes)} / {formatBytes(t.size)}</span>
+                      <span className="small muted num">{formatBytes(t.bytes)} / {formatBytes(t.size)}</span>
                     </td>
-                    <td className="mono muted">{formatBytes(t.speed)}/s</td>
-                    <td className="mono muted">{t.eta != null ? `${t.eta}s` : "—"}</td>
+                    <td className="num muted">{formatBytes(t.speed)}/s</td>
+                    <td className="num muted">{t.eta != null ? `${t.eta}s` : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -64,7 +64,7 @@ export default function Activity({ stats }: PageProps) {
               {done.map((t, i) => (
                 <tr key={i}>
                   <td className="truncate" style={{ maxWidth: 360 }} title={t.error || undefined}>{t.name}</td>
-                  <td className="mono muted">{formatBytes(t.size)}</td>
+                  <td className="num muted">{formatBytes(t.size)}</td>
                   <td className="muted">{new Date(t.completed_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</td>
                   <td><span className={`chip ${t.error ? "error" : "ok"}`}>{t.error ? "Failed" : "Done"}</span></td>
                 </tr>
