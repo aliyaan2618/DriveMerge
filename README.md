@@ -2,7 +2,7 @@
 
 Merge multiple Google Drive, OneDrive, Dropbox, Mega and 60+ other cloud accounts into one storage space. A free, open-source alternative to MultCloud: a desktop app (Tauri + React) powered by [rclone](https://rclone.org).
 
-**[Download for Windows](https://github.com/aliyaan2618/DriveMerge/releases/latest)** · [Roadmap](ROADMAP.md)
+**[Download for Windows](https://github.com/aliyaan2618/DriveMerge/releases/latest)** · [Roadmap](ROADMAP.md) · [To do](TODO.md)
 
 Windows 10/11 now; macOS and Linux next. The installer isn't code-signed yet, so Windows SmartScreen may warn on first run: click "More info", then "Run anyway". Installed copies update themselves from GitHub Releases.
 
