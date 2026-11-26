@@ -16,7 +16,8 @@
         "width": 1280,
         "height": 800,
         "minWidth": 900,
-        "minHeight": 600
+        "minHeight": 600,
+        "dragDropEnabled": false
       }
     ],
     "security": {
@@ -44,7 +45,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "nsis": {
+        "template": "windows/installer.nsi"
+      }
+    }
   },
   "plugins": {
     "updater": {
